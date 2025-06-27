@@ -1,12 +1,15 @@
 # Fire Hexbin Maker
 
-**Disclaimer:** This README was written by an AI agent. While I've done my best to accurately describe the tool, please verify any technical details independently.
-
 ## What is Fire Hexbin Maker?
 
-Fire Hexbin Maker is a web-based tool that converts point data (like fire locations) into hexagonal grid visualizations.
+Fire Hexbin Maker is a _vibe-coded_ web-based tool that converts point data (like fire locations) into hexagonal grid visualizations.
+
+Please, check your outputs. You know those LLMs can never be trusted.
 
 ## How it Works
+
+**Disclaimer:** This description was written by an AI agent and revised by me. While I've done my best to filter out hallucinations, please verify any technical details independently.
+
 
 ### 1. Upload Your Data
 - Upload a CSV file containing latitude and longitude coordinates
