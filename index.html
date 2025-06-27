@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+  <!-- Primary Meta Tags -->
+  <title>lat/lon CSVs to hexbin maps ✨</title>
+  <meta name="title" content="lat/lon CSVs to hexbin maps ✨" />
+  <meta name="description" content="Convert CSV point data into hexagonal bin maps using H3 geospatial indexing. Upload CSV with lat/lon columns, select area, choose resolution, download GeoJSON." />
+  <meta name="keywords" content="hexbin, hexagon, map, geospatial, H3, CSV, GeoJSON, data visualization, turf.js, leaflet, d3" />
+  <meta name="author" content="Rodrigo Menegat Schuinski" />
+  <meta name="robots" content="index, follow" />
+  
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="http://meneg.at/fire-hexbin-map-maker/" />
+  <meta property="og:title" content="lat/lon CSVs to hexbin maps ✨" />
+  <meta property="og:description" content="Convert CSV point data into hexagonal bin maps using H3 geospatial indexing. Upload CSV with lat/lon columns, select area, choose resolution, download GeoJSON." />
+  <meta property="og:image" content="http://meneg.at/fire-hexbin-map-maker/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:site_name" content="Hexbin Maker" />
+  <meta property="og:locale" content="en_US" />
+  
+  <!-- Twitter -->
+  <meta property="twitter:card" content="summary_large_image" />
+  <meta property="twitter:url" content="http://meneg.at/fire-hexbin-map-maker/" />
+  <meta property="twitter:title" content="lat/lon CSVs to hexbin maps ✨" />
+  <meta property="twitter:description" content="Convert CSV point data into hexagonal bin maps using H3 geospatial indexing. Upload CSV with lat/lon columns, select area, choose resolution, download GeoJSON." />
+  <meta property="twitter:image" content="http://meneg.at/fire-hexbin-map-maker/og-image.png" />
+  
+  <!-- Additional Meta Tags -->
+  <meta name="theme-color" content="#667eea" />
+  <meta name="msapplication-TileColor" content="#667eea" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Hexbin Maker" />
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+  
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw/dist/leaflet.draw.css" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Progress Bar -->
+  <div id="progress-bar" class="progress-bar">
+    <div class="progress-fill"></div>
+  </div>
+
+  <!-- Main Container -->
+  <div id="app-container" class="app-container">
+    <!-- Step 1: Start Page -->
+    <div id="step-start" class="step active">
+      <div class="start-container">
+        <div class="logo-section">
+          <div class="logo-icon"></div>
+          <h1 class="main-title">lat/lon CSVs to hexbin maps ✨</h1>
+          <p class="tagline">Upload your file → select an area → tweak parameters and preview→ get GeoJSONs with hexagons</p>
+
+        </div>
+
+
+        <div class="cta-section">
+          <button id="start-button" class="cta-button">
+            <span class="button-text">Get Started</span>
+            <span class="button-arrow">→</span>
+          </button>
+        </div>
+
+        <div class="disclaimer">
+          <p>Built with lots of help from LLMs and the power of <a href="https://turfjs.org/" target="_blank" class="simple-link">Turf.js</a>, <a href="https://leafletjs.com/" target="_blank" class="simple-link">Leaflet</a>, <a href="https://d3js.org/" target="_blank" class="simple-link">D3</a> and <a href="https://h3geo.org/" target="_blank" class="simple-link">H3</a> 
+            <br><Br>This was an experiment at <i>vibe coding</i> and all the recklessness that it entails – always check if your data is sound. </p>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Step 2: CSV Upload -->
+    <div id="step-upload" class="step">
+      <div class="step-header">
+        <h2>Step 1: Upload Your Data</h2>
+        <p>Upload a CSV file with latitude and longitude columns</p>
+      </div>
+      
+      <div class="upload-container">
+        <div class="upload-area" id="upload-area">
+          <div class="upload-icon">📁</div>
+          <h3>Choose your CSV file</h3>
+          <p>Drag and drop or click to browse</p>
+          <input type="file" id="csv-upload" accept=".csv" style="display: none;" />
+        </div>
+        
+        <div class="upload-requirements">
+          <h4>File Requirements:</h4>
+          <ul>
+            <li>Maximum 500,000 rows</li>
+            <li>Must include 'latitude' and 'longitude' columns</li>
+            <li>Comma-separated CSV format only (not semicolon or tab-separated)</li>
+            <li>Coordinates must be numeric: latitude (-90 to 90), longitude (-180 to 180)</li>
+            <li>Example: <code>latitude,longitude<br>40.7128,-74.0060<br>51.5074,-0.1278</code></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="step-navigation">
+        <button class="nav-button secondary" id="back-to-start">← Back</button>
+        <button class="nav-button primary" id="next-to-area" disabled>Continue →</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Area Selection -->
+    <div id="step-area" class="step">
+      <div class="step-header">
+        <h2>Step 2: Select Area</h2>
+        <p>Choose the geographic area for your hexagon map</p>
+      </div>
+      
+      <div class="area-container">
+        <div class="area-controls">
+          <div class="control-group">
+            <h4>Draw Area</h4>
+            <div class="control-info">Click the drawing tools on the map to create a rectangle</div>
+          </div>
+          
+          <div class="control-group">
+            <h4>Upload Area</h4>
+            <button class="control-button" id="upload-geojson">📁 Upload GeoJSON</button>
+            <input type="file" id="geojson-upload" accept=".geojson,.json" style="display: none;" />
+          </div>
+          
+          <div class="control-group">
+            <h4>Pre-made Areas</h4>
+            <div class="control-info">Coming soon - select from predefined regions</div>
+          </div>
+        </div>
+        
+        <div id="map" class="area-map"></div>
+      </div>
+
+      <div class="step-navigation">
+        <button class="nav-button secondary" id="back-to-upload">← Back</button>
+        <button class="nav-button primary" id="next-to-resolution" disabled>Continue →</button>
+      </div>
+    </div>
+
+    <!-- Step 4: Resolution Selection -->
+    <div id="step-resolution" class="step">
+      <div class="step-header">
+        <h2>Step 3: Choose Resolution and Bin Size</h2>
+        <p>Select the size of your hexagons and preview the results</p>
+      </div>
+      
+      <div class="resolution-container">
+        <div class="resolution-controls">
+          <div class="control-section">
+            <h4>Select H3 resolution</h4>
+            <p class="control-description">0 = largest hexagon, 15 = smallest</p>
+            
+            <div class="resolution-slider">
+              <!-- <label for="resolution">H3 Resolution Level:</label> -->
+              <input type="range" id="resolution" min="0" max="15" value="2" />
+              <div class="resolution-info">
+                <span id="res-value">2</span>
+                <span id="res-area">(123,930 km²)</span>
+              </div>
+            </div>
+            
+            <label for="resolution"><strong>Quick reference</strong></label>
+            <div class="resolution-examples">
+              <div class="example-item">
+                <span class="example-label">Level 0:</span>
+                <span class="example-desc">Continental (4.3M km²)</span>
+              </div>
+              <div class="example-item">
+                <span class="example-label">Level 3:</span>
+                <span class="example-desc">Country (123,930 km²)</span>
+              </div>
+              <div class="example-item">
+                <span class="example-label">Level 6:</span>
+                <span class="example-desc">County (36 km²)</span>
+              </div>
+              <div class="example-item">
+                <span class="example-label">Level 9:</span>
+                <span class="example-desc">District (0.1 km²)</span>
+              </div>
+              <div class="example-item">
+                <span class="example-label">Level 12:</span>
+                <span class="example-desc">Neighborhood (0.0003 km²)</span>
+              </div>
+              <div class="example-item">
+                <span class="example-label">Level 15:</span>
+                <span class="example-desc">Building (0.0000001 km²)</span>
+              </div>
+            </div>
+            
+            <div class="tips-list">
+              <div class="tip-item">
+                <span class="tip-bullet">•</span>
+                <span class="tip-text">Start with level 4-6 for most datasets</span>
+              </div>
+              <div class="tip-item">
+                <span class="tip-bullet">•</span>
+                <span class="tip-text">Higher resolution = more detail but slower processing</span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="control-divider"></div>
+          
+          <div class="control-section">
+            <h4>Define your bins</h4>
+            <p class="control-description">Group hexagons by point count to create your bin level categories</p>
+            
+            <div class="bin-inputs">
+              <div class="bin-input-group">
+                <input type="number" id="bin-step" min="1" value="10" />
+                <span class="input-help">Points per category</span>
+              </div>
+              
+              <div class="bin-input-group">
+                <input type="number" id="bin-count" min="1" value="10" />
+                <span class="input-help">Total color categories</span>
+              </div>
+            </div>
+            
+            <div class="tips-list">
+              <div class="tip-item">
+                <span class="tip-bullet">•</span>
+                <span class="tip-text">Use 5-10 categories for clear visualization</span>
+              </div>
+              <div class="tip-item">
+                <span class="tip-bullet">•</span>
+                <span class="tip-text">Smaller step = more granular color differences</span>
+              </div>
+              <div class="tip-item">
+                <span class="tip-bullet">•</span>
+                <span class="tip-text">Check the histogram to see your data distribution</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="preview-section">
+          <h4 class="preview-header">Preview results</h4>
+          <div class="preview-container">
+            <div class="map-legend-panel">
+              <div id="preview-map" class="preview-map"></div>
+              <div class="legend-container" style="display: none;">
+                <div class="legend-info-layer"></div>
+                <div id="bin-preview" class="bin-preview-string"></div>
+                <div class="bin-explanation">
+                  <span class="legend-left">less points</span>
+                  <span class="legend-right">more points</span>
+                </div>
+              </div>
+            </div>
+            <div id="histogram-container" class="histogram-container"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="step-navigation">
+        <button class="nav-button secondary" id="back-to-area">← Back</button>
+        <button class="nav-button primary" id="next-to-download" disabled>Continue →</button>
+      </div>
+    </div>
+
+    <!-- Step 5: Download -->
+    <div id="step-download" class="step">
+      <div class="step-header">
+        <h2>Step 4: Download Your Map</h2>
+        <p>Your hexagon map is ready! Download and start over</p>
+      </div>
+      
+      <div class="download-container">
+        <div class="download-info">
+          <div class="info-card">
+            <h4>File Information</h4>
+            <div id="file-info">
+              <p>Hexagons: <span id="hex-count">-</span></p>
+              <p>File Size: <span id="file-size">-</span></p>
+              <p>Format: GeoJSON</p>
+            </div>
+          </div>
+        </div>
+        
+        <div class="download-options">
+          <button class="download-button primary" id="download-single">
+            📥 Download Single File
+          </button>
+          <button class="download-button secondary" id="download-multi">
+            📦 Download One File Per Bin Level
+          </button>
+        </div>
+        
+        <div class="restart-section">
+          <button class="back-button" id="back-to-resolution">
+            ← Go Back & Adjust
+          </button>
+          <button class="restart-button" id="restart-process">
+            🔄 Start Over
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-draw/dist/leaflet.draw.js"></script>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html> 
