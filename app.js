@@ -20,6 +20,7 @@ class AppState {
     this.hexagonLayer = null;
     this.drawingLayer = null;
     this.geojsonLayer = null;
+    this.customColors = {}; // Store user-selected legend colors by bin label
   }
 
   updateProgress() {
@@ -118,6 +119,13 @@ const MAX_HEXAGONS = 5000;
 document.addEventListener('DOMContentLoaded', () => {
   initializeApp();
   setupEventListeners();
+  setTimeout(() => {
+    const legendCopyBtn = document.getElementById('copy-legend-html');
+    if (legendCopyBtn) {
+      legendCopyBtn.addEventListener('click', copyLegendAsHTML);
+    }
+  }, 500); // Wait for DOM and legend to be present
+  setupBinInputValidation();
 });
 
 function initializeApp() {
@@ -896,8 +904,8 @@ function updateVisualization() {
       style: function(feature) {
         const bin = feature.properties.bin;
         const count = feature.properties.count;
-        const color = getBinColor(bin, binsArr);
-        
+        // Use custom color if set, otherwise default
+        const color = app.customColors[bin] || getBinColor(bin, binsArr);
         return {
           fillColor: color,
           weight: 1,
@@ -1511,16 +1519,18 @@ function getUserBins() {
     const upper = (i + 1) * step;
     
     if (i === 0) {
-      binEdges.push(lower);
+      binEdges.push(lower); // lower is 0 for first bin
     }
     binEdges.push(upper);
     
     if (i === count - 1) {
       // Last bin is open-ended
-      binLabels.push(`${lower}+`);
+      binLabels.push(`${lower + 1}+`); // Show 1+ for last bin
       binEdges[binEdges.length - 1] = Infinity;
+    } else if (i === 0) {
+      binLabels.push(`1–${upper}`); // First bin label is 1–N
     } else {
-      binLabels.push(`${lower}–${upper}`);
+      binLabels.push(`${lower + 1}–${upper}`); // All other bins are as before
     }
   }
   
@@ -1545,23 +1555,107 @@ function getBinLabel(count, binEdges, binLabels) {
 
 function updateBinPreview() {
   const { binEdges, binLabels } = getUserBins();
-  
-  console.log('📊 Bin configuration:', {
-    binEdges,
-    binLabels,
-    step: elements.binStep.value,
-    count: elements.binCount.value
-  });
-  
-  // Create preview string with values on top of color swatches
+
+  // If no custom colors set, initialize with Purples palette
+  if (Object.keys(app.customColors).length === 0) {
+    const startColor = '#ffffff';
+    const endColor = '#5e3c99';
+    const n = binLabels.length;
+    binLabels.forEach((label, i) => {
+      const t = n === 1 ? 1 : i / (n - 1);
+      app.customColors[label] = d3.interpolateLab(startColor, endColor)(t);
+    });
+  }
+
+  // Legend swatches
   const previewString = binLabels.map((label, index) => {
-    const color = getBinColor(label, binLabels);
-    return `<div class="legend-item">
-              <div class="legend-value">${label}</div>
-              <span class="bin-color-swatch" style="background: ${color};"></span>
-            </div>`;
+    const color = app.customColors[label] || getBinColor(label, binLabels);
+    return `<div class=\"legend-item\" data-bin-label=\"${label}\">\n              <div class=\"legend-value\">${label}</div>\n              <span class=\"bin-color-swatch\" style=\"background: ${color};\"></span>\n              <span class=\"palette-hex-label\">${rgbToHex(color)}</span>\n            </div>`;
   }).join('');
-  
+
+  // Update preview display
+  const binPreview = document.getElementById('bin-preview');
+  if (binPreview) {
+    binPreview.innerHTML = previewString;
+    // Remove the palette-hex-row if it exists
+    const hexRow = document.getElementById('palette-hex-row');
+    if (hexRow) {
+      hexRow.remove();
+    }
+  }
+
+  // Palette live update logic (no Apply button)
+  const startInput = document.getElementById('palette-start-color');
+  const endInput = document.getElementById('palette-end-color');
+  // Add or update warning message
+  let paletteWarning = document.getElementById('palette-warning');
+  if (!paletteWarning) {
+    paletteWarning = document.createElement('div');
+    paletteWarning.id = 'palette-warning';
+    paletteWarning.className = 'input-help';
+    paletteWarning.style.color = '#ffb4b4';
+    paletteWarning.style.marginTop = '6px';
+    const paletteControls = document.getElementById('palette-controls');
+    paletteControls.appendChild(paletteWarning);
+  }
+  function updatePaletteLive() {
+    const startColor = startInput.value.trim();
+    const endColor = endInput.value.trim();
+    const hexRegex = /^#([0-9a-fA-F]{6})$/;
+    if (!hexRegex.test(startColor) || !hexRegex.test(endColor)) {
+      paletteWarning.textContent = 'Please enter valid hex codes for both colors (e.g. #ff0000)';
+      return;
+    }
+    paletteWarning.textContent = '';
+    const n = binLabels.length;
+    binLabels.forEach((label, i) => {
+      const t = n === 1 ? 1 : i / (n - 1);
+      app.customColors[label] = d3.interpolateLab(startColor, endColor)(t);
+    });
+    updateBinPreview();
+    updateVisualization();
+  }
+  if (startInput && endInput) {
+    startInput.addEventListener('input', updatePaletteLive);
+    endInput.addEventListener('input', updatePaletteLive);
+  }
+
+  // Show resulting hex codes below the legend, associating each with the correct color swatch
+  let hexRow = document.getElementById('palette-hex-row');
+  if (hexRow) {
+    hexRow.innerHTML = binLabels.map(label => {
+      const color = app.customColors[label] || getBinColor(label, binLabels);
+      return `<span class=\"palette-hex-label\">${rgbToHex(color)}</span>`;
+    }).join('');
+  }
+
+  // Replace the copy button with a discreet icon and tooltip
+  let copyBtn = document.getElementById('copy-legend-html');
+  if (!copyBtn) {
+    copyBtn = document.createElement('button');
+    copyBtn.id = 'copy-legend-html';
+    copyBtn.className = 'copy-legend-btn';
+    copyBtn.innerHTML = '<span style="font-size:18px;">📋</span>';
+    copyBtn.title = 'Copy HTML';
+    copyBtn.setAttribute('aria-label', 'Copy HTML');
+    copyBtn.onmouseenter = () => { copyBtn.title = 'Copy HTML'; };
+    copyBtn.onmouseleave = () => { copyBtn.title = 'Copy HTML'; };
+    copyBtn.onclick = () => { copyLegendAsHTML(); copyBtn.title = 'Copied!'; setTimeout(() => { copyBtn.title = 'Copy HTML'; }, 1200); };
+    // Place in legend container, top right
+    const legendContainer = document.querySelector('.legend-container');
+    if (legendContainer) {
+      legendContainer.style.position = 'relative';
+      copyBtn.style.position = 'absolute';
+      copyBtn.style.right = '8px';
+      copyBtn.style.top = '8px';
+      copyBtn.style.background = 'none';
+      copyBtn.style.border = 'none';
+      copyBtn.style.cursor = 'pointer';
+      copyBtn.style.padding = '2px 6px';
+      legendContainer.appendChild(copyBtn);
+    }
+  }
+
   // Get min/max counts from processed data if available
   let minCount = 0;
   let maxCount = 0;
@@ -1569,12 +1663,6 @@ function updateBinPreview() {
     const counts = app.processedData.features.map(f => f.properties.count);
     minCount = Math.min(...counts);
     maxCount = Math.max(...counts);
-  }
-  
-  // Update preview display
-  const binPreview = document.getElementById('bin-preview');
-  if (binPreview) {
-    binPreview.innerHTML = previewString;
   }
   
   // Update info layer with min/max values
@@ -1601,6 +1689,21 @@ function updateBinPreview() {
   }
 }
 
+// Helper: Convert rgb/rgba color to hex
+function rgbToHex(color) {
+  // If already hex, return
+  if (color.startsWith('#')) return color;
+  // Parse rgb/rgba string
+  const rgb = color.match(/\d+/g);
+  if (!rgb) return '#000000';
+  return (
+    '#' +
+    ((1 << 24) + (parseInt(rgb[0]) << 16) + (parseInt(rgb[1]) << 8) + parseInt(rgb[2]))
+      .toString(16)
+      .slice(1)
+  );
+}
+
 function getBinColor(binLabel, binsArr) {
   const index = binsArr.indexOf(binLabel);
   if (index === -1) return '#cccccc';
@@ -1608,7 +1711,7 @@ function getBinColor(binLabel, binsArr) {
   // Create a D3 color scale that can handle any number of bins
   const colorScale = d3.scaleSequential()
     .domain([0, binsArr.length - 1])
-    .interpolator(d3.interpolateViridis); // Viridis - colorblind friendly, scientific standard
+    .interpolator(d3.interpolateLab('#ffffff', '#5e3c99'));
   
   return colorScale(index);
 }
@@ -1617,7 +1720,7 @@ function getBinColorScale(binsArr) {
   // Create a reusable color scale for the entire application
   return d3.scaleSequential()
     .domain([0, binsArr.length - 1])
-    .interpolator(d3.interpolateViridis); // Viridis - colorblind friendly, scientific standard
+    .interpolator(d3.interpolateLab('#ffffff', '#5e3c99'));
 }
 
 function updateDownloadInfo() {
@@ -1811,4 +1914,109 @@ function validateCurrentStep() {
       disableNextButton(elements.nextToDownload);
     }
   }
+}
+
+// Helper: Inline all computed styles recursively
+function inlineAllStyles(element) {
+  const win = window;
+  if (!element || !win) return;
+  const computed = win.getComputedStyle(element);
+  let styleString = '';
+  for (let i = 0; i < computed.length; i++) {
+    const prop = computed[i];
+    styleString += `${prop}:${computed.getPropertyValue(prop)};`;
+  }
+  element.setAttribute('style', styleString);
+  // Recursively inline children
+  for (const child of element.children) {
+    inlineAllStyles(child);
+  }
+}
+
+// Copy legend as HTML with inline CSS
+function copyLegendAsHTML() {
+  // Only copy the color swatches and their labels from #bin-preview
+  const binPreview = document.getElementById('bin-preview');
+  if (!binPreview) return;
+  // Get all legend items (each contains a label and a swatch)
+  const items = binPreview.querySelectorAll('.legend-item');
+  if (!items.length) return;
+  let html = '';
+  items.forEach(item => {
+    const swatch = item.querySelector('.bin-color-swatch');
+    const label = item.querySelector('.legend-value');
+    if (!swatch || !label) return;
+    const color = window.getComputedStyle(swatch).backgroundColor;
+    const labelText = label.textContent;
+    html += `<span style=\"display:inline-block;text-align:center;margin:5px;\">\n      <span style=\"display:block;width:38px;height:18px;background-color:${color};border-radius:4px;margin:0 auto 5px auto;\"></span>\n      <span style=\"display:block;font-size:12px;margin-top:5px;color:#222;\">${labelText}</span>\n    </span>`;
+  });
+  navigator.clipboard.writeText(html).then(() => {
+    const copyBtn = document.getElementById('copy-legend-html');
+    if (copyBtn) {
+      const originalTitle = copyBtn.title;
+      copyBtn.title = 'Copied!';
+      setTimeout(() => { copyBtn.title = originalTitle || 'Copy HTML'; }, 1200);
+    }
+  });
+}
+
+// Show feedback after copying
+function showCopyFeedback() {
+  const btn = document.getElementById('copy-legend-html');
+  if (!btn) return;
+  const original = btn.textContent;
+  btn.textContent = 'Copied!';
+  btn.disabled = true;
+  setTimeout(() => {
+    btn.textContent = original;
+    btn.disabled = false;
+  }, 1200);
+}
+
+// Add live validation for bin-step and bin-count
+function setupBinInputValidation() {
+  const binStepInput = document.getElementById('bin-step');
+  const binCountInput = document.getElementById('bin-count');
+  // Add or update warning messages
+  let binStepWarning = document.getElementById('bin-step-warning');
+  if (!binStepWarning) {
+    binStepWarning = document.createElement('div');
+    binStepWarning.id = 'bin-step-warning';
+    binStepWarning.className = 'input-help';
+    binStepWarning.style.color = '#ffb4b4';
+    binStepWarning.style.marginTop = '4px';
+    binStepInput.parentElement.appendChild(binStepWarning);
+  }
+  let binCountWarning = document.getElementById('bin-count-warning');
+  if (!binCountWarning) {
+    binCountWarning = document.createElement('div');
+    binCountWarning.id = 'bin-count-warning';
+    binCountWarning.className = 'input-help';
+    binCountWarning.style.color = '#ffb4b4';
+    binCountWarning.style.marginTop = '4px';
+    binCountInput.parentElement.appendChild(binCountWarning);
+  }
+  function validateBinInputs() {
+    let valid = true;
+    const stepVal = binStepInput.value.trim();
+    const countVal = binCountInput.value.trim();
+    if (!/^\d+$/.test(stepVal) || parseInt(stepVal) < 1) {
+      binStepWarning.textContent = 'Please enter a positive integer.';
+      valid = false;
+    } else {
+      binStepWarning.textContent = '';
+    }
+    if (!/^\d+$/.test(countVal) || parseInt(countVal) < 1) {
+      binCountWarning.textContent = 'Please enter a positive integer.';
+      valid = false;
+    } else {
+      binCountWarning.textContent = '';
+    }
+    if (valid) {
+      updateBinPreview();
+      updateVisualization();
+    }
+  }
+  binStepInput.addEventListener('input', validateBinInputs);
+  binCountInput.addEventListener('input', validateBinInputs);
 } 

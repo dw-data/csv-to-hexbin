@@ -248,6 +248,27 @@
               </div>
             </div>
           </div>
+          <div class="control-divider"></div>
+          <div class="control-section" id="palette-controls" class="bin-controls palette-controls-panel">
+            <div class="bin-header"><h4>Customize Color Palette</h4></div>
+            <p class="control-description">Choose the start and end colors for your legend. The palette will smoothly interpolate between them for all bins.</p>
+            <div class="bin-inputs">
+              <div class="bin-input-group">
+                <input type="text" id="palette-start-color" value="#ffffff" placeholder="#ffffff" maxlength="7" class="palette-color-input" />
+                <span class="input-help">Start color</span>
+              </div>
+              <div class="bin-input-group">
+                <input type="text" id="palette-end-color" value="#5e3c99" placeholder="#5e3c99" maxlength="7" class="palette-color-input" />
+                <span class="input-help">End color</span>
+              </div>
+            </div>
+            <ul class="tips-list">
+              <li class="tip-item"><span class="tip-bullet">•</span> <span class="tip-text">Use a light start and a dark end color for best contrast</span></li>
+              <li class="tip-item"><span class="tip-bullet">•</span> <span class="tip-text">Try purple, blue, or red for strong visual impact</span></li>
+              <li class="tip-item"><span class="tip-bullet">•</span> <span class="tip-text">Avoid green-red for colorblind accessibility</span></li>
+              <li class="tip-item"><span class="tip-bullet">•</span> <span class="tip-text">You can paste any valid hex code (e.g. #ff6600)</span></li>
+            </ul>
+          </div>
         </div>
         
         <div class="preview-section">
@@ -255,12 +276,16 @@
           <div class="preview-container">
             <div class="map-legend-panel">
               <div id="preview-map" class="preview-map"></div>
-              <div class="legend-container" style="display: none;">
-                <div class="legend-info-layer"></div>
-                <div id="bin-preview" class="bin-preview-string"></div>
-                <div class="bin-explanation">
-                  <span class="legend-left">less points</span>
-                  <span class="legend-right">more points</span>
+              <div id="legend-preview-wrapper">
+                <div class="legend-container" style="display: none;">
+                  <button id="copy-legend-html" class="copy-legend-btn"><span class="icon-copy"></span></button>
+                  <div class="legend-info-layer"></div>
+                  <div id="bin-preview" class="bin-preview-string"></div>
+                  <div id="palette-hex-row" class="palette-hex-row"></div>
+                  <div class="bin-explanation">
+                    <span class="legend-left">less points</span>
+                    <span class="legend-right">more points</span>
+                  </div>
                 </div>
               </div>
             </div>
