@@ -132,6 +132,9 @@ function initializeApp() {
   // Set initial progress
   app.updateProgress();
   
+  // Disable start button until ready
+  disableNextButton(elements.startButton);
+  
   // Initialize resolution display
   updateResolutionDisplay();
   
@@ -140,8 +143,10 @@ function initializeApp() {
   disableNextButton(elements.nextToResolution);
   disableNextButton(elements.nextToDownload);
   
-  // Clear any cached form data
-  clearFormCache();
+  // Clear any cached form data, then enable start button
+  Promise.resolve(clearFormCache()).then(() => {
+    enableNextButton(elements.startButton);
+  });
 }
 
 function clearFormCache() {
@@ -1953,9 +1958,18 @@ function copyLegendAsHTML() {
   navigator.clipboard.writeText(html).then(() => {
     const copyBtn = document.getElementById('copy-legend-html');
     if (copyBtn) {
-      const originalTitle = copyBtn.title;
-      copyBtn.title = 'Copied!';
-      setTimeout(() => { copyBtn.title = originalTitle || 'Copy HTML'; }, 1200);
+      let feedback = document.getElementById('copy-legend-feedback');
+      if (!feedback) {
+        feedback = document.createElement('div');
+        feedback.id = 'copy-legend-feedback';
+        feedback.className = 'input-help';
+        feedback.style.color = '#b4ffb4';
+        feedback.style.marginTop = '4px';
+        copyBtn.parentElement.insertBefore(feedback, copyBtn.nextSibling);
+      }
+      feedback.textContent = 'Legend HTML copied!';
+      feedback.style.display = 'block';
+      setTimeout(() => { feedback.style.display = 'none'; }, 1200);
     }
   });
 }

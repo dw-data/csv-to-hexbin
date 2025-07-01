@@ -71,8 +71,9 @@
 
 
         <div class="cta-section">
-          <button id="start-button" class="cta-button">
+          <button id="start-button" class="cta-button" disabled>
             <span class="button-text">Get Started</span>
+            <span class="start-spinner" aria-hidden="true" role="status"></span>
             <span class="button-arrow">→</span>
           </button>
         </div>
@@ -278,7 +279,12 @@
               <div id="preview-map" class="preview-map"></div>
               <div id="legend-preview-wrapper">
                 <div class="legend-container" style="display: none;">
-                  <button id="copy-legend-html" class="copy-legend-btn"><span class="icon-copy"></span></button>
+                  <div class="legend-copy-row">
+                    <button id="copy-legend-html" class="copy-legend-btn">
+                      <span class="copy-legend-label">Copy legend to clipboard</span>
+                      <span class="icon-copy"></span>
+                    </button>
+                  </div>
                   <div class="legend-info-layer"></div>
                   <div id="bin-preview" class="bin-preview-string"></div>
                   <div id="palette-hex-row" class="palette-hex-row"></div>
