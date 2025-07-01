@@ -112,6 +112,15 @@
           </ul>
         </div>
       </div>
+      <!-- Sample dataset loader moved below the grid -->
+      <div class="sample-loader">
+        <h4 class="sample-loader-header">Or load a sample dataset:</h4>
+        <select id="sample-csv-select" class="sample-select">
+          <option value="">Select a sample...</option>
+          <option value="csv-samples/Global_Fires_VIIRS _7d_20250701.csv">Global_Fires_VIIRS _7d_20250701.csv</option>
+          <option value="csv-samples/Europe_Fires_VIIRS _7d_20250701.csv">Europe_Fires_VIIRS _7d_20250701.csv</option>
+        </select>
+      </div>
 
       <div class="step-navigation">
         <button class="nav-button secondary" id="back-to-start">← Back</button>
@@ -129,19 +138,29 @@
       <div class="area-container">
         <div class="area-controls">
           <div class="control-group">
-            <h4>Draw Area</h4>
+            <h4>Draw a rectangle</h4>
             <div class="control-info">Click the drawing tools on the map to create a rectangle</div>
           </div>
           
           <div class="control-group">
-            <h4>Upload Area</h4>
+            <h4>Upload your GeoJSON</h4>
             <button class="control-button" id="upload-geojson">📁 Upload GeoJSON</button>
             <input type="file" id="geojson-upload" accept=".geojson,.json" style="display: none;" />
           </div>
           
           <div class="control-group">
-            <h4>Pre-made Areas</h4>
-            <div class="control-info">Coming soon - select from predefined regions</div>
+            <h4>Or select an area from the list</h4>
+            <div class="sample-loader">
+              <select id="sample-geojson-select" class="sample-select">
+                <option value="">Select an area...</option>
+                <option value="geo-samples/brazil.json">Brazil</option>
+                <option value="geo-samples/democratic_congo.json">Democratic Republic of Congo</option>
+                <option value="geo-samples/italy.json">Italy</option>
+                <option value="geo-samples/japan.json">Japan</option>
+                <option value="geo-samples/mexico.json">Mexico</option>
+                <option value="geo-samples/ukraine.json">Ukraine</option>
+              </select>
+            </div>
           </div>
         </div>
         

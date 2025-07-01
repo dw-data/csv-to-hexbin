@@ -126,6 +126,52 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }, 500); // Wait for DOM and legend to be present
   setupBinInputValidation();
+
+  // Sample CSV loader
+  const sampleCsvSelect = document.getElementById('sample-csv-select');
+  if (sampleCsvSelect) {
+    sampleCsvSelect.addEventListener('change', async () => {
+      const url = sampleCsvSelect.value;
+      if (!url) return;
+      try {
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error('Failed to fetch sample CSV');
+        const text = await resp.text();
+        // Simulate a File object for processCSVFile
+        const file = new File([text], url.split('/').pop(), { type: 'text/csv' });
+        processCSVFile(file);
+        sampleCsvSelect.value = '';
+      } catch (err) {
+        showError('Could not load sample CSV: ' + err.message);
+        sampleCsvSelect.value = '';
+      }
+    });
+  }
+
+  // Sample GeoJSON loader
+  const sampleGeojsonSelect = document.getElementById('sample-geojson-select');
+  if (sampleGeojsonSelect) {
+    sampleGeojsonSelect.addEventListener('change', async () => {
+      const url = sampleGeojsonSelect.value;
+      if (!url) return;
+      try {
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error('Failed to fetch sample GeoJSON');
+        const json = await resp.json();
+        // Clear any existing drawings and add to map
+        clearAreaSelection();
+        addGeoJSONToMap(json);
+        app.spatialFilter = json;
+        updateAreaControls('geojson', url.split('/').pop());
+        enableNextButton(elements.nextToResolution);
+        showSuccess('GeoJSON area loaded successfully');
+        sampleGeojsonSelect.value = '';
+      } catch (err) {
+        showError('Could not load sample GeoJSON: ' + err.message);
+        sampleGeojsonSelect.value = '';
+      }
+    });
+  }
 });
 
 function initializeApp() {
@@ -1334,7 +1380,7 @@ function updateUploadSuccess(filename, rowCount) {
   if (uploadArea) {
     uploadArea.innerHTML = `
       <div class="upload-icon">✅</div>
-      <h3>File uploaded successfully!</h3>
+      <h3>File loaded successfully!</h3>
       <p>${filename} (${rowCount.toLocaleString()} rows)</p>
     `;
   }
