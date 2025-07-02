@@ -1,7 +1,12 @@
 // Hexbin Maker - Main Application Logic
-import * as h3 from "https://esm.sh/h3-js@4.1.0";
-import * as turf from "https://esm.sh/@turf/turf@6.5.0";
-import JSZip from "https://esm.sh/jszip@3.10.1";
+// Libraries loaded globally via <script> tags in index.html from vendor/ directory:
+// - Leaflet (L)
+// - Leaflet Draw
+// - D3 (d3)
+// - JSZip (JSZip)
+// - Turf (turf)
+// - H3 (h3)
+// No direct imports required here.
 
 // App State Management
 class AppState {
@@ -2079,4 +2084,89 @@ function setupBinInputValidation() {
   }
   binStepInput.addEventListener('input', validateBinInputs);
   binCountInput.addEventListener('input', validateBinInputs);
-} 
+}
+
+function renderDownloadPreview() {
+  // Only render if processed data exists and the download step is active
+  const downloadStep = document.getElementById('step-download');
+  if (!downloadStep || !app.processedData) return;
+
+  // Map preview
+  if (!app.maps.downloadPreview) {
+    app.maps.downloadPreview = L.map('download-preview-map', {
+      zoomControl: true,
+      attributionControl: false,
+      dragging: true,
+      scrollWheelZoom: true,
+      doubleClickZoom: true,
+      boxZoom: true,
+      keyboard: false,
+      tap: false,
+      touchZoom: true
+    }).setView([0, 0], 2);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '',
+      maxZoom: 19
+    }).addTo(app.maps.downloadPreview);
+  }
+  // Remove previous layer if any
+  if (app.downloadHexLayer) {
+    app.maps.downloadPreview.removeLayer(app.downloadHexLayer);
+  }
+  // Add hexagons
+  if (app.processedData && app.processedData.features.length > 0) {
+    const binsArr = app.processedData.binLabels;
+    app.downloadHexLayer = L.geoJSON(app.processedData.features, {
+      style: function(feature) {
+        const bin = feature.properties.bin;
+        const color = app.customColors[bin] || getBinColor(bin, binsArr);
+        return {
+          fillColor: color,
+          weight: 1,
+          opacity: 0.8,
+          color: '#333',
+          fillOpacity: 0.6
+        };
+      },
+      interactive: false // No popups or editing
+    }).addTo(app.maps.downloadPreview);
+    app.maps.downloadPreview.fitBounds(app.downloadHexLayer.getBounds(), {padding: [10,10]});
+  }
+
+  // Legend preview
+  const legendContainer = document.getElementById('download-legend-container');
+  if (legendContainer) {
+    legendContainer.innerHTML = '';
+    legendContainer.style.display = 'block';
+    // Copy legend from main preview if available
+    const mainLegend = document.querySelector('.legend-container');
+    if (mainLegend && mainLegend.innerHTML) {
+      legendContainer.innerHTML = mainLegend.innerHTML;
+    }
+    // Ensure copy button is interactive
+    const copyBtn = legendContainer.querySelector('.copy-legend-btn');
+    if (copyBtn) {
+      copyBtn.disabled = false;
+      copyBtn.style.pointerEvents = 'auto';
+      copyBtn.style.opacity = '1';
+    }
+  }
+}
+
+// Call renderDownloadPreview when entering the download step and when processed data updates
+const originalGoToStep = AppState.prototype.goToStep;
+AppState.prototype.goToStep = function(stepNumber) {
+  originalGoToStep.call(this, stepNumber);
+  if (stepNumber === 5) {
+    setTimeout(renderDownloadPreview, 200);
+  }
+};
+
+// Also call after processing completes
+const originalProcessData = processData;
+processData = function() {
+  originalProcessData.apply(this, arguments);
+  if (app.currentStep === 5) {
+    setTimeout(renderDownloadPreview, 200);
+  }
+}; 

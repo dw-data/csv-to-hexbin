@@ -496,9 +496,9 @@ body {
 }
 
 .legend-container {
-  background: rgba(255, 255, 255, 0.08);
+  /* background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 12px;
+  border-radius: 12px; */
   padding: 15px;
   margin: 10px 0;
   max-width: 600px;
@@ -634,10 +634,10 @@ body {
 }
 
 .legend-container {
-  background: rgba(255, 255, 255, 0.05);
+  /* background: rgba(255, 255, 255, 0.05);
   border: none;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 0;
+  border-radius: 0; */
   padding: 10px 15px;
   margin: 0;
   max-width: none;
@@ -1522,4 +1522,129 @@ body {
   margin-bottom: 15px;
   font-weight: 500;
   letter-spacing: 0.01em;
+}
+
+/* Download Page Map & Legend Preview - Enhanced */
+.download-map-legend-panel {
+  flex-direction: column;
+  align-items: center;
+  background: rgba(255,255,255,0.08);
+  border-radius: 18px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+  padding: 18px 24px 18px 18px;
+  gap: 18px;
+  min-width: 0;
+  max-width: 700px;
+  margin: 0 auto 18px auto;
+  display: flex;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.download-preview-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+#download-legend-preview-wrapper {
+  margin-top: 18px;
+  margin-left: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: auto;
+  overflow: visible;
+}
+#download-legend-container.legend-container {
+  /* min-width: 220px; */
+  width: 100%;
+  margin: 0 auto;
+  pointer-events: auto;
+  height: auto;
+  max-height: none;
+  overflow: visible;
+}
+
+.download-main-row {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 36px;
+  margin-top: 18px;
+  margin-bottom: 18px;
+}
+.download-info {
+  flex: 0 0 auto;
+}
+.download-buttons-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  align-items: flex-end;
+  justify-content: flex-start;
+}
+.download-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-end;
+}
+.restart-section {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  align-items: flex-end;
+  margin-top: 10px;
+}
+
+@media (max-width: 900px) {
+  .download-map-legend-panel {
+    min-width: 220px;
+    max-width: 100%;
+    padding: 10px 6px 10px 6px;
+    gap: 12px;
+  }
+  .download-preview-container {
+    min-width: 180px;
+    max-width: 100%;
+    min-height: 120px;
+    max-height: 180px;
+  }
+  #download-legend-preview-wrapper {
+    margin-top: 10px;
+  }
+  .download-main-row {
+    flex-direction: column;
+    gap: 18px;
+    align-items: stretch;
+  }
+  .download-buttons-wrapper {
+    align-items: stretch;
+  }
+  .download-options {
+    align-items: stretch;
+  }
+  .restart-section {
+    align-items: stretch;
+  }
+}
+
+.download-preview-map {
+  min-width: 320px;
+  min-height: 320px;
+  width: 100%;
+  /* height: 320px; */
+  max-width: 700px;
+  max-height: 420px;
+  border-radius: 14px;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.10);
+  filter: none;
+  pointer-events: auto;
+  background: #eaeaea;
 } 

@@ -44,8 +44,8 @@
   <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
   
   <!-- Stylesheets -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw/dist/leaflet.draw.css" />
+  <link rel="stylesheet" href="vendor/leaflet.css" />
+  <link rel="stylesheet" href="vendor/leaflet.draw.css" />
   <link rel="stylesheet" href="styles.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -333,26 +333,40 @@
       </div>
       
       <div class="download-container">
-        <div class="download-info">
-          <div class="info-card">
-            <h4>File Information</h4>
-            <div id="file-info">
-              <p>Hexagons: <span id="hex-count">-</span></p>
-              <p>File Size: <span id="file-size">-</span></p>
-              <p>Format: GeoJSON</p>
+        <!-- Map and Legend Preview -->
+        <div class="download-preview-section">
+          <div class="download-preview-container">
+            <div class="map-legend-panel download-map-legend-panel">
+              <div id="download-preview-map" class="preview-map download-preview-map"></div>
+              <div id="download-legend-preview-wrapper">
+                <div class="legend-container" id="download-legend-container" style="display: none;"></div>
+              </div>
             </div>
           </div>
         </div>
-        
-        <div class="download-options">
-          <button class="download-button primary" id="download-single">
-            📥 Download Single File
-          </button>
-          <button class="download-button secondary" id="download-multi">
-            📦 Download One File Per Bin Level
-          </button>
+        <!-- End Map and Legend Preview -->
+        <div class="download-main-row">
+          <div class="download-info">
+            <div class="info-card small-info-card">
+              <h4>File Information</h4>
+              <div id="file-info">
+                <p>Hexagons: <span id="hex-count">-</span></p>
+                <p>File Size: <span id="file-size">-</span></p>
+                <p>Format: GeoJSON</p>
+              </div>
+            </div>
+          </div>
+          <div class="download-buttons-wrapper">
+            <div class="download-options">
+              <button class="download-button primary" id="download-single">
+                📥 Download Single File
+              </button>
+              <button class="download-button secondary" id="download-multi">
+                📦 Download One File Per Bin Level
+              </button>
+            </div>
+          </div>
         </div>
-        
         <div class="restart-section">
           <button class="back-button" id="back-to-resolution">
             ← Go Back & Adjust
@@ -366,10 +380,12 @@
   </div>
 
   <!-- Scripts -->
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/leaflet-draw/dist/leaflet.draw.js"></script>
-  <script src="https://d3js.org/d3.v7.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="vendor/leaflet.js"></script>
+  <script src="vendor/leaflet.draw.js"></script>
+  <script src="vendor/d3.v7.min.js"></script>
+  <script src="vendor/jszip.min.js"></script>
+  <script src="vendor/turf.min.js"></script>
+  <script src="vendor/h3-js.umd.js"></script>
   <script type="module" src="app.js"></script>
 </body>
 </html> 
