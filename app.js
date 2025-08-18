@@ -12,8 +12,11 @@
 class AppState {
   constructor() {
     this.currentStep = 1;
-    this.totalSteps = 4;
+    this.totalSteps = 5;
     this.csvData = null;
+    this.originalCsvData = null; // Keep original data for filtering
+    this.filteredCsvData = null; // Store filtered data
+    this.activeFilters = {}; // Track active filters
     this.spatialFilter = null;
     this.processedData = null;
     this.resolution = 2;
@@ -54,9 +57,12 @@ class AppState {
       
       // Initialize step-specific functionality
       if (stepNumber === 3) {
+        // Initialize filtering step
+        setTimeout(() => initializeFilterStep(), 100);
+      } else if (stepNumber === 4) {
         // Initialize area selection step
         setTimeout(() => initializeAreaStep(), 100);
-      } else if (stepNumber === 4) {
+      } else if (stepNumber === 5) {
         // Initialize resolution step and trigger processing
         console.log('📊 Entering resolution step - triggering data processing...');
         setTimeout(() => {
@@ -71,9 +77,10 @@ class AppState {
     const stepNames = {
       1: 'start',
       2: 'upload',
-      3: 'area',
-      4: 'resolution',
-      5: 'download'
+      3: 'filter',
+      4: 'area',
+      5: 'resolution',
+      6: 'download'
     };
     return stepNames[stepNumber];
   }
@@ -86,8 +93,10 @@ const app = new AppState();
 const elements = {
   startButton: document.getElementById('start-button'),
   backToStart: document.getElementById('back-to-start'),
-  nextToArea: document.getElementById('next-to-area'),
+  nextToFilter: document.getElementById('next-to-filter'),
   backToUpload: document.getElementById('back-to-upload'),
+  nextToArea: document.getElementById('next-to-area'),
+  backToFilter: document.getElementById('back-to-filter'),
   nextToResolution: document.getElementById('next-to-resolution'),
   backToArea: document.getElementById('back-to-area'),
   nextToDownload: document.getElementById('next-to-download'),
@@ -212,6 +221,9 @@ function clearFormCache() {
   
   // Clear any cached data
   app.csvData = null;
+  app.originalCsvData = null;
+  app.filteredCsvData = null;
+  app.activeFilters = {};
   app.spatialFilter = null;
   app.processedData = null;
   
@@ -220,33 +232,75 @@ function clearFormCache() {
 
 function setupEventListeners() {
   // Navigation buttons with validation
-  elements.startButton?.addEventListener('click', () => app.goToStep(2));
-  elements.backToStart?.addEventListener('click', () => app.goToStep(1));
-  elements.nextToArea?.addEventListener('click', () => {
+  elements.startButton?.addEventListener('click', () => {
+    console.log('🚀 Start button clicked, going to step 2');
+    app.goToStep(2);
+  });
+  elements.backToStart?.addEventListener('click', () => {
+    console.log('⬅️ Back to start clicked, going to step 1');
+    app.goToStep(1);
+  });
+  elements.nextToFilter?.addEventListener('click', () => {
+    console.log('➡️ Next to filter clicked');
     if (app.csvData) {
+      console.log('✅ CSV data exists, going to step 3');
       app.goToStep(3);
     } else {
+      console.log('❌ No CSV data, showing error');
       showError('Please upload a CSV file first');
     }
   });
-  elements.backToUpload?.addEventListener('click', () => app.goToStep(2));
-  elements.nextToResolution?.addEventListener('click', () => {
-    if (app.spatialFilter) {
+  elements.backToUpload?.addEventListener('click', () => {
+    console.log('⬅️ Back to upload clicked, going to step 2');
+    app.goToStep(2);
+  });
+  elements.nextToArea?.addEventListener('click', () => {
+    console.log('➡️ Next to area clicked');
+    const hasData = app.originalCsvData || app.filteredCsvData || app.csvData;
+    if (hasData && hasData.length > 0) {
+      console.log('✅ Data exists, going to step 4');
       app.goToStep(4);
     } else {
+      console.log('❌ No data, showing error');
+      showError('Please review and filter your data first');
+    }
+  });
+  elements.backToFilter?.addEventListener('click', () => {
+    console.log('⬅️ Back to filter clicked, going to step 2');
+    app.goToStep(3);
+  });
+  elements.nextToResolution?.addEventListener('click', () => {
+    console.log('➡️ Next to resolution clicked');
+    if (app.spatialFilter) {
+      console.log('✅ Spatial filter exists, going to step 5');
+      app.goToStep(5);
+    } else {
+      console.log('❌ No spatial filter, showing error');
       showError('Please select an area first (draw rectangle or upload GeoJSON)');
     }
   });
-  elements.backToArea?.addEventListener('click', () => app.goToStep(3));
+  elements.backToArea?.addEventListener('click', () => {
+    console.log('⬅️ Back to area clicked, going to step 4');
+    app.goToStep(4);
+  });
   elements.nextToDownload?.addEventListener('click', () => {
+    console.log('➡️ Next to download clicked');
     if (app.processedData) {
-      app.goToStep(5);
+      console.log('✅ Processed data exists, going to step 6');
+      app.goToStep(6);
     } else {
+      console.log('❌ No processed data, showing error');
       showError('Please wait for data processing to complete');
     }
   });
-  elements.restartProcess?.addEventListener('click', restartApp);
-  elements.backToResolution?.addEventListener('click', () => app.goToStep(4));
+  elements.restartProcess?.addEventListener('click', () => {
+    console.log('🔄 Restart process clicked');
+    restartApp();
+  });
+  elements.backToResolution?.addEventListener('click', () => {
+    console.log('⬅️ Back to resolution clicked, going to step 5');
+    app.goToStep(5);
+  });
 
   // File uploads
   elements.csvUpload?.addEventListener('change', handleCSVUpload);
@@ -326,7 +380,11 @@ function processCSVFile(file) {
         throw new Error('Missing required columns.');
       }
       if (validateCSVData(data)) {
-        app.csvData = data;
+        app.originalCsvData = data;
+        app.filteredCsvData = data;
+        app.csvData = data; // Keep for compatibility
+        app.activeFilters = {};
+        
         console.log('✅ CSV data successfully loaded!');
         console.log('📊 Data summary:', {
           totalRows: data.length,
@@ -335,7 +393,7 @@ function processCSVFile(file) {
           firstFewRows: data.slice(0, 3)
         });
         updateUploadSuccess(file.name, data.length);
-        enableNextButton(elements.nextToArea);
+        enableNextButton(elements.nextToFilter);
       }
     } catch (error) {
       console.error('❌ Error processing CSV file:', error);
@@ -388,6 +446,793 @@ function validateCSVData(data) {
   
   console.log('✅ CSV validation passed!');
   return true;
+}
+
+// Data Preview & Filtering
+function initializeFilterStep() {
+  console.log('🔍 Initializing filtering step...');
+  console.log('📊 Available data:', {
+    originalCsvData: app.originalCsvData ? `${app.originalCsvData.length} rows` : 'null',
+    filteredCsvData: app.filteredCsvData ? `${app.filteredCsvData.length} rows` : 'null',
+    csvData: app.csvData ? `${app.csvData.length} rows` : 'null'
+  });
+  
+  // Use the best available data source
+  let dataToUse = app.originalCsvData || app.filteredCsvData || app.csvData;
+  
+  if (!dataToUse) {
+    console.error('❌ No CSV data available for filtering');
+    const container = d3.select('#data-preview');
+    container.html('');
+    container.append('p')
+      .text('No data available for filtering')
+      .style('color', 'rgba(255, 255, 255, 0.6)')
+      .style('text-align', 'center')
+      .style('padding', '20px');
+    return;
+  }
+  
+  // Initialize data preview
+  createDataPreview(dataToUse);
+  
+  // Initialize filter controls
+  createFilterControls(dataToUse);
+  
+  // Update filter summary
+  updateFilterSummary();
+  
+  console.log('✅ Filtering step initialized');
+}
+
+function createDataPreview(data, maxRows = 50) {
+  const container = d3.select('#data-preview');
+  container.html(''); // Clear existing content
+  
+  console.log('🔍 Creating data preview with:', {
+    data: data,
+    hasData: !!data,
+    hasColumns: !!(data && data.columns),
+    hasLength: !!(data && data.length),
+    columns: data ? data.columns : 'none',
+    length: data ? data.length : 'none'
+  });
+  
+  if (!data || !data.length) {
+    container.append('p')
+      .text('No data to display')
+      .style('color', 'rgba(255, 255, 255, 0.6)')
+      .style('text-align', 'center')
+      .style('padding', '20px');
+    return;
+  }
+  
+  // Get columns from first row if data.columns doesn't exist
+  const columns = data.columns || Object.keys(data[0] || {});
+  
+  if (!columns || columns.length === 0) {
+    container.append('p')
+      .text('No columns found in data')
+      .style('color', 'rgba(255, 255, 255, 0.6)')
+      .style('text-align', 'center')
+      .style('padding', '20px');
+    return;
+  }
+  
+  console.log('📊 Creating table with columns:', columns);
+  
+  // Create table structure
+  const table = container.append('table')
+    .attr('class', 'data-preview-table');
+  
+  // Header row with column names
+  const header = table.append('thead').append('tr');
+  header.selectAll('th')
+    .data(columns)
+    .enter().append('th')
+    .text(d => d);
+  
+  // Data rows (first N rows)
+  const tbody = table.append('tbody');
+  const rows = tbody.selectAll('tr')
+    .data(data.slice(0, maxRows))
+    .enter().append('tr');
+  
+  rows.selectAll('td')
+    .data(d => columns.map(col => d[col]))
+    .enter().append('td')
+    .text(d => d || '');
+  
+  // Add summary info
+  const summary = container.append('div')
+    .attr('class', 'data-summary');
+  
+  summary.append('p')
+    .text(`Showing first ${Math.min(maxRows, data.length)} of ${data.length.toLocaleString()} rows`);
+  
+  summary.append('p')
+    .text(`${columns.length} columns: ${columns.join(', ')}`);
+}
+
+function createFilterControls(data) {
+  const container = d3.select('#filter-controls');
+  container.html(''); // Clear existing content
+  
+  if (!data || !data.length) {
+    console.error('❌ Invalid data provided to createFilterControls');
+    return;
+  }
+  
+  // Get columns from first row if data.columns doesn't exist
+  const columns = data.columns || Object.keys(data[0] || {});
+  
+  if (!columns || columns.length === 0) {
+    console.error('❌ No columns found in data');
+    return;
+  }
+  
+  console.log('🔍 Creating filter controls for columns:', columns);
+  console.log('🔍 Existing active filters:', app.activeFilters);
+  
+  // Find or create the sidebar
+  let sidebar = d3.select('.filter-sidebar');
+  if (sidebar.empty()) {
+    sidebar = container.append('div')
+      .attr('class', 'filter-sidebar');
+  }
+  
+  // Find or create the filter controls container
+  let filterControlsContainer = sidebar.select('.filter-controls');
+  if (filterControlsContainer.empty()) {
+    filterControlsContainer = sidebar.append('div')
+      .attr('class', 'filter-controls');
+  }
+  
+  // Add header to filter controls
+  filterControlsContainer.append('h4')
+    .attr('class', 'section-header')
+    .text('🔍 Filter Options');
+  
+  // Helper function to detect if a column contains dates
+  function isDateColumn(sampleData, column) {
+    const nonEmptyValues = sampleData
+      .map(row => row[column])
+      .filter(value => value && value.toString().trim() !== '');
+    
+    if (nonEmptyValues.length === 0) return false;
+    
+    // Check if at least 80% of non-empty values can be parsed as valid dates
+    const validDates = nonEmptyValues.filter(value => {
+      const date = new Date(value);
+      return !isNaN(date.getTime()) && date.toString() !== 'Invalid Date';
+    });
+    
+    return (validDates.length / nonEmptyValues.length) >= 0.8;
+  }
+  
+  // Helper function to determine filter type
+  function determineFilterType(sampleData, column, uniqueValues) {
+    // Check if column is numeric
+    const isNumeric = sampleData.every(row => {
+      const value = row[column];
+      return value === '' || !isNaN(parseFloat(value));
+    });
+    
+    // Check if column contains dates
+    const isDate = isDateColumn(sampleData, column);
+    
+    if (isDate) return 'date';
+    if (isNumeric && uniqueValues.length > 1) return 'numeric';
+    if (uniqueValues.length <= 20) return 'categorical';
+    return 'text';
+  }
+  
+  // Helper function to create filter type selector
+  function createFilterTypeSelector(filterGroup, column, currentType, sampleData, uniqueValues) {
+    const selectorContainer = filterGroup.append('div')
+      .attr('class', 'filter-type-selector');
+    
+    selectorContainer.append('label')
+      .attr('class', 'filter-type-label')
+      .text('Filter Type: ');
+    
+    const select = selectorContainer.append('select')
+      .attr('class', 'filter-type-select');
+    
+    // Add options based on what makes sense for this column
+    const options = [];
+    
+    // Always allow text filter
+    options.push({ value: 'text', label: 'Text Search' });
+    
+    // Allow categorical if we have reasonable number of unique values
+    if (uniqueValues.length <= 50) {
+      options.push({ value: 'categorical', label: 'Select Values' });
+    }
+    
+    // Allow numeric if values can be parsed as numbers
+    const isNumeric = sampleData.every(row => {
+      const value = row[column];
+      return value === '' || !isNaN(parseFloat(value));
+    });
+    if (isNumeric) {
+      options.push({ value: 'numeric', label: 'Number Range' });
+    }
+    
+    // Allow date if values can be parsed as dates
+    const isDate = isDateColumn(sampleData, column);
+    if (isDate) {
+      options.push({ value: 'date', label: 'Date Range' });
+    }
+    
+    // Add options to select
+    select.selectAll('option')
+      .data(options)
+      .enter()
+      .append('option')
+      .attr('value', d => d.value)
+      .text(d => d.label);
+    
+    // Set current value
+    select.property('value', currentType);
+    
+    // Handle change event
+    select.on('change', function() {
+      const newType = this.value;
+      console.log(`🔄 Changing filter type for column "${column}" from "${currentType}" to "${newType}"`);
+      
+      // Clear existing filter value for this column
+      delete app.activeFilters[column];
+      
+      // Recreate the filter controls for this column
+      filterGroup.selectAll('.filter-control').remove();
+      createFilterControl(filterGroup, column, newType, sampleData, uniqueValues);
+      
+      // Apply filters
+      applyFilters();
+    });
+    
+    return select;
+  }
+  
+  // Helper function to create individual filter control
+  function createFilterControl(filterGroup, column, filterType, sampleData, uniqueValues) {
+    const controlContainer = filterGroup.append('div')
+      .attr('class', 'filter-control');
+    
+    if (filterType === 'date') {
+      createDateFilter(controlContainer, column, sampleData);
+    } else if (filterType === 'numeric') {
+      createNumericFilter(controlContainer, column, sampleData);
+    } else if (filterType === 'categorical') {
+      createCategoricalFilter(controlContainer, column, uniqueValues);
+    } else {
+      createTextFilter(controlContainer, column);
+    }
+  }
+  
+  // Create filter for each column
+  columns.forEach(column => {
+    const filterGroup = filterControlsContainer.append('div')
+      .attr('class', 'filter-group');
+    
+    // Column name
+    filterGroup.append('label')
+      .text(column);
+    
+    // Get unique values for this column (sample first 1000 rows)
+    const sampleData = data.slice(0, 1000);
+    const uniqueValues = [...new Set(sampleData.map(row => row[column]))].slice(0, 20);
+    
+    // Determine filter type
+    const detectedType = determineFilterType(sampleData, column, uniqueValues);
+    
+    // Create filter type selector
+    createFilterTypeSelector(filterGroup, column, detectedType, sampleData, uniqueValues);
+    
+    // Create the actual filter control
+    createFilterControl(filterGroup, column, detectedType, sampleData, uniqueValues);
+  });
+  
+  // Apply initial filters after all controls are set up
+  setTimeout(() => applyFilters(), 100);
+}
+
+// Helper function to create date filter
+function createDateFilter(container, column, sampleData) {
+  // Get date range from data
+  const dateValues = sampleData
+    .map(row => row[column])
+    .filter(value => value && value.toString().trim() !== '')
+    .map(value => new Date(value))
+    .filter(date => !isNaN(date.getTime()));
+  
+  if (dateValues.length === 0) {
+    container.append('p')
+      .attr('class', 'no-data-message')
+      .text('No valid dates found');
+    return;
+  }
+  
+  const minDate = new Date(Math.min(...dateValues));
+  const maxDate = new Date(Math.max(...dateValues));
+  
+  // Set initial filter values only if they don't exist
+  if (!app.activeFilters[column]) {
+    app.activeFilters[column] = { type: 'date', min: minDate, max: maxDate };
+  }
+  
+  const filterConfig = app.activeFilters[column];
+  const currentMin = filterConfig.min;
+  const currentMax = filterConfig.max;
+  
+  // Create date inputs container
+  const dateContainer = container.append('div')
+    .attr('class', 'date-filter-container');
+  
+  // Min date input
+  const minContainer = dateContainer.append('div')
+    .attr('class', 'date-input-container');
+  
+  minContainer.append('label')
+    .attr('class', 'date-label')
+    .text('From:');
+  
+  const minInput = minContainer.append('input')
+    .attr('type', 'date')
+    .attr('class', 'date-input min-date')
+    .attr('value', currentMin.toISOString().split('T')[0]);
+  
+  // Max date input
+  const maxContainer = dateContainer.append('div')
+    .attr('class', 'date-input-container');
+  
+  maxContainer.append('label')
+    .attr('class', 'date-label')
+    .text('To:');
+  
+  const maxInput = maxContainer.append('input')
+    .attr('type', 'date')
+    .attr('class', 'date-input max-date')
+    .attr('value', currentMax.toISOString().split('T')[0]);
+  
+  // Handle date changes
+  function updateDateFilter() {
+    const minDate = new Date(minInput.property('value'));
+    const maxDate = new Date(maxInput.property('value'));
+    
+    if (!isNaN(minDate.getTime()) && !isNaN(maxDate.getTime())) {
+      app.activeFilters[column] = { type: 'date', min: minDate, max: maxDate };
+      applyFilters();
+    }
+  }
+  
+  minInput.on('change', updateDateFilter);
+  maxInput.on('change', updateDateFilter);
+}
+
+// Helper function to create numeric filter (existing logic)
+function createNumericFilter(container, column, sampleData) {
+  const numericValues = sampleData
+    .map(row => parseFloat(row[column]))
+    .filter(val => !isNaN(val));
+  
+  if (numericValues.length === 0) {
+    container.append('p')
+      .attr('class', 'no-data-message')
+      .text('No numeric values found');
+    return;
+  }
+  
+  const min = Math.min(...numericValues);
+  const max = Math.max(...numericValues);
+  
+  // Set initial filter values only if they don't exist
+  if (!app.activeFilters[column]) {
+    app.activeFilters[column] = { type: 'range', min: min, max: max };
+  }
+  
+  const filterConfig = app.activeFilters[column];
+  const currentMin = filterConfig.min;
+  const currentMax = filterConfig.max;
+  
+  const sliderContainer = container.append('div')
+    .attr('class', 'range-slider-container');
+  
+  sliderContainer.append('label')
+    .text(`Range: ${min.toFixed(2)} - ${max.toFixed(2)}`);
+  
+  // Create single range slider with dual handles
+  const rangeSlider = sliderContainer.append('div')
+    .attr('class', 'dual-range-slider');
+  
+  // Create the slider track
+  const sliderTrack = rangeSlider.append('div')
+    .attr('class', 'slider-track');
+  
+  // Create the range fill
+  const rangeFill = sliderTrack.append('div')
+    .attr('class', 'range-fill');
+  
+  // Create min handle
+  const minHandle = rangeSlider.append('div')
+    .attr('class', 'slider-handle min-handle')
+    .attr('data-value', min);
+  
+  // Create max handle
+  const maxHandle = rangeSlider.append('div')
+    .attr('class', 'slider-handle max-handle')
+    .attr('data-value', max);
+  
+  // Value display
+  const valueDisplay = sliderContainer.append('div')
+    .attr('class', 'range-values');
+  
+  // Min input and label
+  const minInputContainer = valueDisplay.append('div')
+    .attr('class', 'input-container');
+  
+  minInputContainer.append('label')
+    .attr('class', 'input-label')
+    .text('Min:');
+  
+  const minInput = minInputContainer.append('input')
+    .attr('type', 'text')
+    .attr('class', 'range-input min-input')
+    .attr('value', currentMin.toFixed(2));
+  
+  // Max input and label
+  const maxInputContainer = valueDisplay.append('div')
+    .attr('class', 'input-container');
+  
+  maxInputContainer.append('label')
+    .attr('class', 'input-label')
+    .text('Max:');
+  
+  const maxInput = maxInputContainer.append('input')
+    .attr('type', 'text')
+    .attr('class', 'range-input max-input')
+    .attr('value', currentMax.toFixed(2));
+  
+  // Update slider positions and range fill
+  function updateSliderDisplay(minVal, maxVal) {
+    const range = max - min;
+    const minPercent = ((minVal - min) / range) * 100;
+    const maxPercent = ((maxVal - min) / range) * 100;
+    
+    minHandle.style('left', `${minPercent}%`);
+    maxHandle.style('left', `${maxPercent}%`);
+    rangeFill.style('left', `${minPercent}%`);
+    rangeFill.style('width', `${maxPercent - minPercent}%`);
+  }
+  
+  // Initialize slider display
+  updateSliderDisplay(currentMin, currentMax);
+  
+  // Handle input changes
+  function handleInputChange() {
+    const newMin = parseFloat(minInput.property('value')) || min;
+    const newMax = parseFloat(maxInput.property('value')) || max;
+    
+    const clampedMin = Math.max(min, Math.min(newMin, newMax));
+    const clampedMax = Math.min(max, Math.max(newMax, clampedMin));
+    
+    minInput.property('value', clampedMin.toFixed(2));
+    maxInput.property('value', clampedMax.toFixed(2));
+    
+    updateSliderDisplay(clampedMin, clampedMax);
+    
+    app.activeFilters[column] = { type: 'range', min: clampedMin, max: clampedMax };
+    applyFilters();
+  }
+  
+  minInput.on('blur', handleInputChange);
+  maxInput.on('blur', handleInputChange);
+  minInput.on('keypress', function(event) {
+    if (event.key === 'Enter') handleInputChange();
+  });
+  maxInput.on('keypress', function(event) {
+    if (event.key === 'Enter') handleInputChange();
+  });
+  
+  // Handle slider dragging
+  let isDragging = false;
+  let activeHandle = null;
+  
+  function handleMouseDown(event, handle) {
+    isDragging = true;
+    activeHandle = handle;
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  }
+  
+  function handleMouseMove(event) {
+    if (!isDragging) return;
+    
+    const rect = rangeSlider.node().getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const percent = Math.max(0, Math.min(100, (x / rect.width) * 100));
+    const value = min + (percent / 100) * (max - min);
+    
+    if (activeHandle.className.includes('min-handle')) {
+      const maxVal = parseFloat(maxInput.property('value'));
+      const clampedValue = Math.max(min, Math.min(value, maxVal));
+      minInput.property('value', clampedValue.toFixed(2));
+      updateSliderDisplay(clampedValue, maxVal);
+      app.activeFilters[column] = { type: 'range', min: clampedValue, max: maxVal };
+    } else {
+      const minVal = parseFloat(minInput.property('value'));
+      const clampedValue = Math.min(max, Math.max(value, minVal));
+      maxInput.property('value', clampedValue.toFixed(2));
+      updateSliderDisplay(minVal, clampedValue);
+      app.activeFilters[column] = { type: 'range', min: minVal, max: clampedValue };
+    }
+    
+    applyFilters();
+  }
+  
+  function handleMouseUp() {
+    isDragging = false;
+    activeHandle = null;
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', handleMouseUp);
+  }
+  
+  minHandle.on('mousedown', function(event) {
+    handleMouseDown(event, this);
+  });
+  
+  maxHandle.on('mousedown', function(event) {
+    handleMouseDown(event, this);
+  });
+  
+  // Touch events for mobile
+  function handleTouchStart(event, handle) {
+    isDragging = true;
+    activeHandle = handle;
+    document.addEventListener('touchmove', handleTouchMove);
+    document.addEventListener('touchend', handleTouchEnd);
+  }
+  
+  function handleTouchMove(event) {
+    if (!isDragging) return;
+    event.preventDefault();
+    
+    const touch = event.touches[0];
+    const rect = rangeSlider.node().getBoundingClientRect();
+    const x = touch.clientX - rect.left;
+    const percent = Math.max(0, Math.min(100, (x / rect.width) * 100));
+    const value = min + (percent / 100) * (max - min);
+    
+    if (activeHandle.className.includes('min-handle')) {
+      const maxVal = parseFloat(maxInput.property('value'));
+      const clampedValue = Math.max(min, Math.min(value, maxVal));
+      minInput.property('value', clampedValue.toFixed(2));
+      updateSliderDisplay(clampedValue, maxVal);
+      app.activeFilters[column] = { type: 'range', min: clampedValue, max: maxVal };
+    } else {
+      const minVal = parseFloat(minInput.property('value'));
+      const clampedValue = Math.min(max, Math.min(value, minVal));
+      maxInput.property('value', clampedValue.toFixed(2));
+      updateSliderDisplay(minVal, clampedValue);
+      app.activeFilters[column] = { type: 'range', min: minVal, max: clampedValue };
+    }
+    
+    applyFilters();
+  }
+  
+  function handleTouchEnd() {
+    isDragging = false;
+    activeHandle = null;
+    document.removeEventListener('touchmove', handleTouchMove);
+    document.removeEventListener('touchend', handleTouchEnd);
+  }
+  
+  minHandle.on('touchstart', function(event) {
+    handleTouchStart(event, this);
+  });
+  
+  maxHandle.on('touchstart', function(event) {
+    handleTouchStart(event, this);
+  });
+}
+
+// Helper function to create categorical filter (existing logic)
+function createCategoricalFilter(container, column, uniqueValues) {
+  const checkboxContainer = container.append('div')
+    .attr('class', 'checkbox-container');
+  
+  // Set initial filter values only if they don't exist
+  if (!app.activeFilters[column]) {
+    app.activeFilters[column] = uniqueValues;
+  }
+  
+  // Use existing filter values if available
+  const selectedValues = app.activeFilters[column] || uniqueValues;
+  
+  uniqueValues.forEach(value => {
+    const checkboxDiv = checkboxContainer.append('div')
+      .attr('class', 'checkbox-item');
+    
+    const checkbox = checkboxDiv.append('input')
+      .attr('type', 'checkbox')
+      .attr('id', `filter-${column}-${value}`)
+      .attr('value', value)
+      .attr('checked', selectedValues.includes(value));
+    
+    checkboxDiv.append('label')
+      .attr('for', `filter-${column}-${value}`)
+      .text(value || '(empty)');
+    
+    checkbox.on('change', function() {
+      const checkedValues = checkboxContainer.selectAll('input:checked').nodes()
+        .map(node => node.value);
+      app.activeFilters[column] = checkedValues.length > 0 ? checkedValues : null;
+      applyFilters();
+    });
+  });
+}
+
+// Helper function to create text filter (existing logic)
+function createTextFilter(container, column) {
+  const input = container.append('input')
+    .attr('type', 'text')
+    .attr('placeholder', 'Filter by value...')
+    .attr('class', 'filter-input');
+  
+  // Set initial filter value only if it doesn't exist
+  if (!app.activeFilters[column]) {
+    app.activeFilters[column] = null;
+  }
+  
+  // Set input value to existing filter if available
+  if (app.activeFilters[column]) {
+    input.attr('value', app.activeFilters[column]);
+  }
+  
+  input.on('input', debounce(function() {
+    const value = this.value.trim();
+    app.activeFilters[column] = value || null;
+    applyFilters();
+  }, 300));
+}
+
+function applyFilters() {
+  // Use the best available data source
+  let originalData = app.originalCsvData || app.csvData;
+  
+  if (!originalData) {
+    console.log('⚠️ No original CSV data available for filtering');
+    return;
+  }
+  
+  console.log('🔍 Applying filters to', originalData.length, 'rows');
+  console.log('🔍 Active filters:', app.activeFilters);
+  
+  // Apply each active filter
+  let filteredData = d3.filter(originalData, d => {
+    return Object.entries(app.activeFilters).every(([column, filterConfig]) => {
+      if (!filterConfig) return true;
+      
+      const cellValue = d[column];
+      
+      if (filterConfig.type === 'range') {
+        // Range filter
+        const numValue = parseFloat(cellValue);
+        return !isNaN(numValue) && numValue >= filterConfig.min && numValue <= filterConfig.max;
+      } else if (filterConfig.type === 'date') {
+        // Date filter
+        const dateValue = new Date(cellValue);
+        return !isNaN(dateValue.getTime()) && 
+               dateValue >= filterConfig.min && 
+               dateValue <= filterConfig.max;
+      } else if (Array.isArray(filterConfig)) {
+        // Multi-select filter
+        return filterConfig.includes(cellValue);
+      } else {
+        // Text filter
+        return String(cellValue).toLowerCase().includes(filterConfig.toLowerCase());
+      }
+    });
+  });
+  
+  console.log('✅ Filtering result:', originalData.length, '→', filteredData.length, 'rows');
+  
+  // Update filtered data
+  app.filteredCsvData = filteredData;
+  app.csvData = filteredData; // For compatibility with existing code
+  
+  // Update preview
+  updateDataPreview(filteredData);
+  updateFilterSummary();
+  
+  // Enable/disable next button based on filtered data
+  if (filteredData.length > 0) {
+    enableNextButton(elements.nextToArea);
+  } else {
+    disableNextButton(elements.nextToArea);
+  }
+}
+
+function updateDataPreview(data) {
+  const container = d3.select('#data-preview');
+  container.html('');
+  
+  if (!data || !data.length) {
+    container.append('p')
+      .text('No data to display')
+      .style('color', 'rgba(255, 255, 255, 0.6)')
+      .style('text-align', 'center')
+      .style('padding', '20px');
+    return;
+  }
+  
+  createDataPreview(data, 50);
+}
+
+function updateFilterSummary() {
+  // Find or create the sidebar
+  let sidebar = d3.select('.filter-sidebar');
+  if (sidebar.empty()) {
+    // If sidebar doesn't exist, create it in the filter controls container
+    const filterControls = d3.select('#filter-controls');
+    sidebar = filterControls.append('div')
+      .attr('class', 'filter-sidebar');
+  }
+  
+  // Find or create the summary container
+  let summary = sidebar.select('.filter-summary');
+  if (summary.empty()) {
+    // Insert summary at the beginning of the sidebar
+    summary = sidebar.insert('div', ':first-child')
+      .attr('class', 'filter-summary');
+  }
+  
+  summary.html('');
+  
+  // Add header
+  summary.append('h4')
+    .attr('class', 'section-header')
+    .text('📊 Data Summary');
+  
+  // Use the best available data source
+  let originalData = app.originalCsvData || app.csvData;
+  
+  if (!originalData || !app.filteredCsvData) {
+    summary.append('p')
+      .attr('class', 'filter-stats')
+      .text('No data available');
+    return;
+  }
+  
+  const originalCount = originalData.length;
+  const filteredCount = app.filteredCsvData.length;
+  const removedCount = originalCount - filteredCount;
+  const percentageRemoved = ((removedCount/originalCount)*100).toFixed(1);
+  
+  summary.append('p')
+    .attr('class', 'filter-stats')
+    .text(`📄 Total rows: ${originalCount.toLocaleString()}`);
+  
+  summary.append('p')
+    .attr('class', 'filter-stats')
+    .text(`✅ Visible rows: ${filteredCount.toLocaleString()}`);
+  
+  summary.append('p')
+    .attr('class', 'filter-stats')
+    .text(`🚫 Filtered out: ${removedCount.toLocaleString()} (${percentageRemoved}%)`);
+}
+
+// Utility function for debouncing
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
 }
 
 // Area Selection
@@ -1947,14 +2792,24 @@ function validateCurrentStep() {
   // Validate step 2 (upload) - CSV data required
   if (app.currentStep === 2) {
     if (app.csvData) {
+      enableNextButton(elements.nextToFilter);
+    } else {
+      disableNextButton(elements.nextToFilter);
+    }
+  }
+  
+  // Validate step 3 (filter) - any CSV data required
+  if (app.currentStep === 3) {
+    const hasData = app.originalCsvData || app.filteredCsvData || app.csvData;
+    if (hasData && hasData.length > 0) {
       enableNextButton(elements.nextToArea);
     } else {
       disableNextButton(elements.nextToArea);
     }
   }
   
-  // Validate step 3 (area) - spatial filter required
-  if (app.currentStep === 3) {
+  // Validate step 4 (area) - spatial filter required
+  if (app.currentStep === 4) {
     if (app.spatialFilter) {
       enableNextButton(elements.nextToResolution);
     } else {
@@ -1962,8 +2817,8 @@ function validateCurrentStep() {
     }
   }
   
-  // Validate step 4 (resolution) - processed data required
-  if (app.currentStep === 4) {
+  // Validate step 5 (resolution) - processed data required
+  if (app.currentStep === 5) {
     if (app.processedData) {
       enableNextButton(elements.nextToDownload);
     } else {

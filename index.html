@@ -124,14 +124,37 @@
 
       <div class="step-navigation">
         <button class="nav-button secondary" id="back-to-start">← Back</button>
+        <button class="nav-button primary" id="next-to-filter" disabled>Continue →</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Data Preview & Filtering -->
+    <div id="step-filter" class="step">
+      <div class="step-header">
+        <h2>Step 2: Preview & Filter Your Data</h2>
+        <p>Review your data and apply filters to remove unwanted rows</p>
+      </div>
+      
+      <div class="filter-container">
+        <div class="data-preview" id="data-preview">
+          <!-- Data table will be shown here -->
+        </div>
+        
+        <div class="filter-controls" id="filter-controls">
+          <!-- Filter controls will be generated here -->
+        </div>
+      </div>
+
+      <div class="step-navigation">
+        <button class="nav-button secondary" id="back-to-upload">← Back</button>
         <button class="nav-button primary" id="next-to-area" disabled>Continue →</button>
       </div>
     </div>
 
-    <!-- Step 3: Area Selection -->
+    <!-- Step 4: Area Selection -->
     <div id="step-area" class="step">
       <div class="step-header">
-        <h2>Step 2: Select Area</h2>
+        <h2>Step 3: Select Area</h2>
         <p>Choose the geographic area for your hexagon map</p>
       </div>
       
@@ -168,15 +191,15 @@
       </div>
 
       <div class="step-navigation">
-        <button class="nav-button secondary" id="back-to-upload">← Back</button>
+        <button class="nav-button secondary" id="back-to-filter">← Back</button>
         <button class="nav-button primary" id="next-to-resolution" disabled>Continue →</button>
       </div>
     </div>
 
-    <!-- Step 4: Resolution Selection -->
+    <!-- Step 5: Resolution Selection -->
     <div id="step-resolution" class="step">
       <div class="step-header">
-        <h2>Step 3: Choose Resolution and Bin Size</h2>
+        <h2>Step 4: Choose Resolution and Bin Size</h2>
         <p>Select the size of your hexagons and preview the results</p>
       </div>
       
@@ -325,10 +348,10 @@
       </div>
     </div>
 
-    <!-- Step 5: Download -->
+    <!-- Step 6: Download -->
     <div id="step-download" class="step">
       <div class="step-header">
-        <h2>Step 4: Download Your Map</h2>
+        <h2>Step 5: Download Your Map</h2>
         <p>Your hexagon map is ready! Download and start over</p>
       </div>
       
