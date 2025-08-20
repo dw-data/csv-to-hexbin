@@ -2540,11 +2540,66 @@ function initializeResolutionStep() {
     console.log('✅ Preview map initialized');
   }
   
+  // Restore hexagon layer if it exists and processed data is available
+  if (app.processedData && app.processedData.features && app.processedData.features.length > 0) {
+    console.log('🗺️ Restoring hexagon layer to resolution step map...');
+    
+    // Clear existing hexagon layer
+    if (app.hexagonLayer) {
+      app.maps.preview.removeLayer(app.hexagonLayer);
+    }
+    
+    // Get color scale for binning
+    const binsArr = app.processedData.binLabels;
+    const colorScale = getBinColorScale(binsArr);
+    
+    // Create GeoJSON layer with custom styling
+    app.hexagonLayer = L.geoJSON(app.processedData.features, {
+      style: function(feature) {
+        const bin = feature.properties.bin;
+        const count = feature.properties.count;
+        // Use custom color if set, otherwise default
+        const color = app.customColors[bin] || getBinColor(bin, binsArr);
+        return {
+          fillColor: color,
+          weight: 1,
+          opacity: 0.8,
+          color: '#333',
+          fillOpacity: 0.6
+        };
+      },
+      onEachFeature: function(feature, layer) {
+        const count = feature.properties.count;
+        const bin = feature.properties.bin;
+        const h3index = feature.properties.h3index;
+        
+        layer.bindPopup(`
+          <strong>Hexagon ${h3index}</strong><br>
+          Points: ${count}<br>
+          Bin: ${bin}
+        `);
+      }
+    }).addTo(app.maps.preview);
+    
+    // Fit map to hexagon bounds
+    app.maps.preview.fitBounds(app.hexagonLayer.getBounds());
+    
+    console.log(`🗺️ Restored ${app.processedData.features.length} hexagon polygons to resolution step map`);
+  }
+  
   // Update resolution display
   updateResolutionDisplay();
   
   // Update bin preview
   updateBinPreview();
+  
+  // Show legend if we have processed data
+  if (app.processedData && app.processedData.features && app.processedData.features.length > 0) {
+    const legendContainer = document.querySelector('.legend-container');
+    if (legendContainer) {
+      legendContainer.classList.add('visible');
+    }
+  }
   
   console.log('✅ Resolution step initialized');
 }
@@ -3068,34 +3123,34 @@ function renderDownloadPreview() {
   const downloadStep = document.getElementById('step-download');
   if (!downloadStep || !app.processedData) return;
 
-  // Map preview
+  // Create download map if it doesn't exist
   if (!app.maps.downloadPreview) {
-    app.maps.downloadPreview = L.map('download-preview-map', {
-      zoomControl: true,
-      attributionControl: false,
-      dragging: true,
-      scrollWheelZoom: true,
-      doubleClickZoom: true,
-      boxZoom: true,
-      keyboard: false,
-      tap: false,
-      touchZoom: true
-    }).setView([0, 0], 2);
+    app.maps.downloadPreview = L.map('download-preview-map').setView([0, 0], 2);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '',
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       maxZoom: 19
     }).addTo(app.maps.downloadPreview);
   }
-  // Remove previous layer if any
+
+  // Clear existing hexagon layer
   if (app.downloadHexLayer) {
     app.maps.downloadPreview.removeLayer(app.downloadHexLayer);
   }
-  // Add hexagons
+
+  // Add hexagon polygons to download map if we have processed data
   if (app.processedData && app.processedData.features.length > 0) {
+    console.log('🗺️ Adding hexagon polygons to download map...');
+    
+    // Get color scale for binning
     const binsArr = app.processedData.binLabels;
+    const colorScale = getBinColorScale(binsArr);
+    
+    // Create GeoJSON layer with custom styling
     app.downloadHexLayer = L.geoJSON(app.processedData.features, {
       style: function(feature) {
         const bin = feature.properties.bin;
+        const count = feature.properties.count;
+        // Use custom color if set, otherwise default
         const color = app.customColors[bin] || getBinColor(bin, binsArr);
         return {
           fillColor: color,
@@ -3105,9 +3160,23 @@ function renderDownloadPreview() {
           fillOpacity: 0.6
         };
       },
-      interactive: false // No popups or editing
+      onEachFeature: function(feature, layer) {
+        const count = feature.properties.count;
+        const bin = feature.properties.bin;
+        const h3index = feature.properties.h3index;
+        
+        layer.bindPopup(`
+          <strong>Hexagon ${h3index}</strong><br>
+          Points: ${count}<br>
+          Bin: ${bin}
+        `);
+      }
     }).addTo(app.maps.downloadPreview);
-    app.maps.downloadPreview.fitBounds(app.downloadHexLayer.getBounds(), {padding: [10,10]});
+    
+    // Fit map to hexagon bounds
+    app.maps.downloadPreview.fitBounds(app.downloadHexLayer.getBounds());
+    
+    console.log(`🗺️ Added ${app.processedData.features.length} hexagon polygons to download map`);
   }
 
   // Legend preview
@@ -3134,7 +3203,7 @@ function renderDownloadPreview() {
 const originalGoToStep = AppState.prototype.goToStep;
 AppState.prototype.goToStep = function(stepNumber) {
   originalGoToStep.call(this, stepNumber);
-  if (stepNumber === 5) {
+  if (stepNumber === 6) {
     setTimeout(renderDownloadPreview, 200);
   }
 };
@@ -3143,7 +3212,7 @@ AppState.prototype.goToStep = function(stepNumber) {
 const originalProcessData = processData;
 processData = function() {
   originalProcessData.apply(this, arguments);
-  if (app.currentStep === 5) {
+  if (app.currentStep === 6) {
     setTimeout(renderDownloadPreview, 200);
   }
 }; 
