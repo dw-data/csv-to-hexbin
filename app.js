@@ -449,6 +449,14 @@ function validateCSVData(data) {
 }
 
 // Data Preview & Filtering
+// IMPORTANT: sampleData should ONLY be used for determining data types (numeric, date, categorical)
+// NEVER use sampleData for filtering, statistics, or summary calculations.
+// Always use the full data (app.originalCsvData, app.filteredCsvData, or app.csvData) for:
+// - Filter ranges (min/max dates, min/max numbers)
+// - Statistical calculations (averages, counts, unique value counts)
+// - Actual data filtering operations
+// - Column summaries and statistics
+
 function initializeFilterStep() {
   console.log('🔍 Initializing filtering step...');
   console.log('📊 Available data:', {
@@ -478,7 +486,7 @@ function initializeFilterStep() {
   // Initialize filter controls
   createFilterControls(dataToUse);
   
-  // Update filter summary
+  // Update filter summary (now positioned below data preview)
   updateFilterSummary();
   
   console.log('✅ Filtering step initialized');
@@ -520,6 +528,11 @@ function createDataPreview(data, maxRows = 50) {
   
   console.log('📊 Creating table with columns:', columns);
   
+  // Add title to the preview section
+  container.append('h3')
+    .attr('class', 'preview-title')
+    .text('Data Preview');
+  
   // Create table structure
   const table = container.append('table')
     .attr('class', 'data-preview-table');
@@ -551,14 +564,37 @@ function createDataPreview(data, maxRows = 50) {
   
   summary.append('p')
     .text(`${columns.length} columns: ${columns.join(', ')}`);
+  
+  // Update filter summary to show initial data count
+  updateFilterSummary();
+}
+
+// Helper function to detect if a column contains dates (for type detection only)
+// This function uses sample data to determine the data type, not for actual filtering
+function isDateColumn(sampleData, column) {
+  const nonEmptyValues = sampleData
+    .map(row => row[column])
+    .filter(value => value && value.toString().trim() !== '');
+  
+  if (nonEmptyValues.length === 0) return false;
+  
+  // Check if at least 80% of non-empty values can be parsed as valid dates
+  const validDates = nonEmptyValues.filter(value => {
+    const date = new Date(value);
+    return !isNaN(date.getTime()) && date.toString() !== 'Invalid Date';
+  });
+  
+  return (validDates.length / nonEmptyValues.length) >= 0.8;
 }
 
 function createFilterControls(data) {
   const container = d3.select('#filter-controls');
-  container.html(''); // Clear existing content
+  
+  // Clear only the dynamically generated content, preserve static HTML
+  container.selectAll('.filter-panel-title, .filter-group').remove();
   
   if (!data || !data.length) {
-    console.error('❌ Invalid data provided to createFilterControls');
+    console.error('Invalid data provided to createFilterControls');
     return;
   }
   
@@ -566,50 +602,29 @@ function createFilterControls(data) {
   const columns = data.columns || Object.keys(data[0] || {});
   
   if (!columns || columns.length === 0) {
-    console.error('❌ No columns found in data');
+    console.error('No columns found in data');
     return;
   }
   
-  console.log('🔍 Creating filter controls for columns:', columns);
-  console.log('🔍 Existing active filters:', app.activeFilters);
+  console.log('Creating filter controls for columns:', columns);
+  console.log('Existing active filters:', app.activeFilters);
   
-  // Find or create the sidebar
-  let sidebar = d3.select('.filter-sidebar');
-  if (sidebar.empty()) {
-    sidebar = container.append('div')
-      .attr('class', 'filter-sidebar');
-  }
+  // Create the main filter controls container directly
+  const filterControlsContainer = container;
   
-  // Find or create the filter controls container
-  let filterControlsContainer = sidebar.select('.filter-controls');
-  if (filterControlsContainer.empty()) {
-    filterControlsContainer = sidebar.append('div')
-      .attr('class', 'filter-controls');
-  }
+  // Add main title for the filter panel
+  filterControlsContainer.append('h3')
+    .attr('class', 'filter-panel-title')
+    .text('Data Filtering');
+  
+
   
   // Add header to filter controls
   filterControlsContainer.append('h4')
     .attr('class', 'section-header')
-    .text('🔍 Filter Options');
+    .text('Column Filters');
   
-  // Helper function to detect if a column contains dates
-  function isDateColumn(sampleData, column) {
-    const nonEmptyValues = sampleData
-      .map(row => row[column])
-      .filter(value => value && value.toString().trim() !== '');
-    
-    if (nonEmptyValues.length === 0) return false;
-    
-    // Check if at least 80% of non-empty values can be parsed as valid dates
-    const validDates = nonEmptyValues.filter(value => {
-      const date = new Date(value);
-      return !isNaN(date.getTime()) && date.toString() !== 'Invalid Date';
-    });
-    
-    return (validDates.length / nonEmptyValues.length) >= 0.8;
-  }
-  
-  // Helper function to determine filter type
+  // Helper function to determine filter type (uses sample data for type detection only)
   function determineFilterType(sampleData, column, uniqueValues) {
     // Check if column is numeric
     const isNumeric = sampleData.every(row => {
@@ -622,8 +637,8 @@ function createFilterControls(data) {
     
     if (isDate) return 'date';
     if (isNumeric && uniqueValues.length > 1) return 'numeric';
-    if (uniqueValues.length <= 20) return 'categorical';
-    return 'text';
+    if (uniqueValues.length <= 50) return 'categorical';
+    return 'categorical'; // Default to categorical for any remaining cases
   }
   
   // Helper function to create filter type selector
@@ -640,9 +655,6 @@ function createFilterControls(data) {
     
     // Add options based on what makes sense for this column
     const options = [];
-    
-    // Always allow text filter
-    options.push({ value: 'text', label: 'Text Search' });
     
     // Allow categorical if we have reasonable number of unique values
     if (uniqueValues.length <= 50) {
@@ -703,44 +715,228 @@ function createFilterControls(data) {
       createDateFilter(controlContainer, column, sampleData);
     } else if (filterType === 'numeric') {
       createNumericFilter(controlContainer, column, sampleData);
-    } else if (filterType === 'categorical') {
-      createCategoricalFilter(controlContainer, column, uniqueValues);
     } else {
-      createTextFilter(controlContainer, column);
+      // Default to categorical for any other type
+      // For categorical filters, we need to get unique values from the full data
+      const fullData = app.originalCsvData || app.filteredCsvData || app.csvData;
+      if (fullData) {
+        const fullUniqueValues = [...new Set(fullData.map(row => row[column]))].slice(0, 50);
+        createCategoricalFilter(controlContainer, column, fullUniqueValues);
+      } else {
+        createCategoricalFilter(controlContainer, column, uniqueValues);
+      }
     }
   }
   
+  // Sort columns: confidence first, then others
+  const sortedColumns = [...columns].sort((a, b) => {
+    if (a.toLowerCase() === 'confidence') return -1;
+    if (b.toLowerCase() === 'confidence') return 1;
+    return 0;
+  });
+  
   // Create filter for each column
-  columns.forEach(column => {
+  sortedColumns.forEach((column, index) => {
     const filterGroup = filterControlsContainer.append('div')
-      .attr('class', 'filter-group');
+      .attr('class', `filter-group collapsible ${column.toLowerCase() === 'confidence' ? 'confidence-filter' : ''}`);
+    
+    // Create collapsible header
+    const header = filterGroup.append('div')
+      .attr('class', 'filter-group-header');
+    
+    // Add collapse/expand icon
+    header.append('span')
+      .attr('class', 'collapse-icon')
+      .html(column.toLowerCase() === 'confidence' || index === 0 ? '−' : '+')
+      .style('cursor', 'pointer')
+      .style('margin-right', '12px')
+      .style('transition', 'transform 0.2s ease')
+      .style('font-weight', 'bold')
+      .style('font-size', '16px');
     
     // Column name
-    filterGroup.append('label')
-      .text(column);
+    header.append('label')
+      .text(column)
+      .style('cursor', 'pointer')
+      .style('color', column.toLowerCase() === 'confidence' ? '#4facfe' : 'white')
+      .style('font-size', '14px')
+      .style('text-transform', 'none')
+      .style('letter-spacing', 'normal');
     
-    // Get unique values for this column (sample first 1000 rows)
+    // Create collapsible content container
+    const content = filterGroup.append('div')
+      .attr('class', 'filter-group-content')
+      .style('display', column.toLowerCase() === 'confidence' || index === 0 ? 'block' : 'none'); // Confidence and first group expanded by default
+    
+    // Get unique values for this column (sample first 1000 rows for type detection only)
     const sampleData = data.slice(0, 1000);
     const uniqueValues = [...new Set(sampleData.map(row => row[column]))].slice(0, 20);
     
-    // Determine filter type
+    // Create column summary showing min/max values using full data
+    createColumnSummary(content, column, data, uniqueValues);
+    
+    // Determine filter type using sample data (for type detection only)
     const detectedType = determineFilterType(sampleData, column, uniqueValues);
     
     // Create filter type selector
-    createFilterTypeSelector(filterGroup, column, detectedType, sampleData, uniqueValues);
+    createFilterTypeSelector(content, column, detectedType, sampleData, uniqueValues);
     
     // Create the actual filter control
-    createFilterControl(filterGroup, column, detectedType, sampleData, uniqueValues);
+    createFilterControl(content, column, detectedType, sampleData, uniqueValues);
+    
+    // Add click handler for collapse/expand
+    header.on('click', function() {
+      const icon = d3.select(this).select('.collapse-icon');
+      const content = d3.select(this.parentNode).select('.filter-group-content');
+      const isCollapsed = content.style('display') === 'none';
+      
+      if (isCollapsed) {
+        // Expand
+        content.style('display', 'block');
+        icon.html('−');
+      } else {
+        // Collapse
+        content.style('display', 'none');
+        icon.html('+');
+      }
+    });
+    
+    // Add active filter indicator
+    updateFilterGroupIndicator(filterGroup, column);
   });
   
   // Apply initial filters after all controls are set up
   setTimeout(() => applyFilters(), 100);
 }
 
+// Helper function to create column summary
+function createColumnSummary(filterGroup, column, fullData, uniqueValues) {
+  const summaryContainer = filterGroup.append('div')
+    .attr('class', 'column-summary');
+  
+  // Get non-empty values from full data
+  const nonEmptyValues = fullData
+    .map(row => row[column])
+    .filter(value => value && value.toString().trim() !== '');
+  
+  if (nonEmptyValues.length === 0) {
+    summaryContainer.append('p')
+      .attr('class', 'summary-text')
+      .text('No data available');
+    return;
+  }
+  
+  // Check if values are numeric (use a small sample for type detection)
+  const sampleData = fullData.slice(0, 1000);
+  const isNumeric = sampleData.every(row => {
+    const value = row[column];
+    return value === '' || !isNaN(parseFloat(value));
+  });
+  
+  // Check if values are dates (use a small sample for type detection)
+  const isDate = isDateColumn(sampleData, column);
+  
+  let summaryText = '';
+  
+  if (isDate) {
+    // Date summary
+    const dateValues = nonEmptyValues
+      .map(value => new Date(value))
+      .filter(date => !isNaN(date.getTime()));
+    
+    if (dateValues.length > 0) {
+      const minDate = new Date(Math.min(...dateValues));
+      const maxDate = new Date(Math.max(...dateValues));
+      summaryText = `📅 Date range: ${minDate.toLocaleDateString()} to ${maxDate.toLocaleDateString()} (${dateValues.length} valid dates)`;
+    }
+  } else if (isNumeric) {
+    // Numeric summary
+    const numericValues = nonEmptyValues
+      .map(value => parseFloat(value))
+      .filter(val => !isNaN(val));
+    
+    if (numericValues.length > 0) {
+      const min = Math.min(...numericValues);
+      const max = Math.max(...numericValues);
+      const avg = numericValues.reduce((a, b) => a + b, 0) / numericValues.length;
+      summaryText = `📊 Range: ${min.toFixed(2)} to ${max.toFixed(2)} | Avg: ${avg.toFixed(2)} | ${numericValues.length} values`;
+    }
+  } else {
+    // Categorical/text summary - use full data for accurate counts
+    const fullUniqueValues = [...new Set(nonEmptyValues)];
+    const uniqueCount = fullUniqueValues.length;
+    const totalCount = nonEmptyValues.length;
+    const mostCommon = getMostCommonValue(nonEmptyValues);
+    summaryText = ` ${uniqueCount} unique values | ${totalCount} total | Most common: "${mostCommon}"`;
+  }
+  
+  summaryContainer.append('p')
+    .attr('class', 'summary-text')
+    .text(summaryText);
+}
+
+// Helper function to get most common value
+function getMostCommonValue(values) {
+  const counts = {};
+  values.forEach(value => {
+    counts[value] = (counts[value] || 0) + 1;
+  });
+  
+  let mostCommon = '';
+  let maxCount = 0;
+  
+  Object.entries(counts).forEach(([value, count]) => {
+    if (count > maxCount) {
+      maxCount = count;
+      mostCommon = value;
+    }
+  });
+  
+  return mostCommon;
+}
+
+// Helper function to update filter group indicator
+function updateFilterGroupIndicator(filterGroup, column) {
+  const header = filterGroup.select('.filter-group-header');
+  const icon = header.select('.collapse-icon');
+  
+  // Check if this column has active filters
+  const hasActiveFilter = app.activeFilters[column] && 
+    (Array.isArray(app.activeFilters[column]) ? 
+      app.activeFilters[column].length > 0 : 
+      app.activeFilters[column] !== null);
+  
+  if (hasActiveFilter) {
+    // Add active indicator
+    filterGroup.classed('active', true).classed('inactive', false);
+  } else {
+    // Remove active indicator
+    filterGroup.classed('active', false).classed('inactive', true);
+  }
+}
+
+// Helper function to update all filter group indicators
+function updateAllFilterGroupIndicators() {
+  const filterGroups = d3.selectAll('.filter-group');
+  filterGroups.each(function() {
+    const filterGroup = d3.select(this);
+    const columnLabel = filterGroup.select('.filter-group-header label').text();
+    updateFilterGroupIndicator(filterGroup, columnLabel);
+  });
+}
+
 // Helper function to create date filter
 function createDateFilter(container, column, sampleData) {
-  // Get date range from data
-  const dateValues = sampleData
+  // Get date range from full data (not sample data)
+  const fullData = app.originalCsvData || app.filteredCsvData || app.csvData;
+  if (!fullData) {
+    container.append('p')
+      .attr('class', 'no-data-message')
+      .text('No data available');
+    return;
+  }
+  
+  const dateValues = fullData
     .map(row => row[column])
     .filter(value => value && value.toString().trim() !== '')
     .map(value => new Date(value))
@@ -812,7 +1008,16 @@ function createDateFilter(container, column, sampleData) {
 
 // Helper function to create numeric filter (existing logic)
 function createNumericFilter(container, column, sampleData) {
-  const numericValues = sampleData
+  // Get numeric range from full data (not sample data)
+  const fullData = app.originalCsvData || app.filteredCsvData || app.csvData;
+  if (!fullData) {
+    container.append('p')
+      .attr('class', 'no-data-message')
+      .text('No data available');
+    return;
+  }
+  
+  const numericValues = fullData
     .map(row => parseFloat(row[column]))
     .filter(val => !isNaN(val));
   
@@ -1072,29 +1277,7 @@ function createCategoricalFilter(container, column, uniqueValues) {
   });
 }
 
-// Helper function to create text filter (existing logic)
-function createTextFilter(container, column) {
-  const input = container.append('input')
-    .attr('type', 'text')
-    .attr('placeholder', 'Filter by value...')
-    .attr('class', 'filter-input');
-  
-  // Set initial filter value only if it doesn't exist
-  if (!app.activeFilters[column]) {
-    app.activeFilters[column] = null;
-  }
-  
-  // Set input value to existing filter if available
-  if (app.activeFilters[column]) {
-    input.attr('value', app.activeFilters[column]);
-  }
-  
-  input.on('input', debounce(function() {
-    const value = this.value.trim();
-    app.activeFilters[column] = value || null;
-    applyFilters();
-  }, 300));
-}
+
 
 function applyFilters() {
   // Use the best available data source
@@ -1128,9 +1311,6 @@ function applyFilters() {
       } else if (Array.isArray(filterConfig)) {
         // Multi-select filter
         return filterConfig.includes(cellValue);
-      } else {
-        // Text filter
-        return String(cellValue).toLowerCase().includes(filterConfig.toLowerCase());
       }
     });
   });
@@ -1143,7 +1323,12 @@ function applyFilters() {
   
   // Update preview
   updateDataPreview(filteredData);
+  
+  // Update filter summary
   updateFilterSummary();
+  
+  // Update filter group indicators
+  updateAllFilterGroupIndicators();
   
   // Enable/disable next button based on filtered data
   if (filteredData.length > 0) {
@@ -1170,20 +1355,12 @@ function updateDataPreview(data) {
 }
 
 function updateFilterSummary() {
-  // Find or create the sidebar
-  let sidebar = d3.select('.filter-sidebar');
-  if (sidebar.empty()) {
-    // If sidebar doesn't exist, create it in the filter controls container
-    const filterControls = d3.select('#filter-controls');
-    sidebar = filterControls.append('div')
-      .attr('class', 'filter-sidebar');
-  }
-  
-  // Find or create the summary container
-  let summary = sidebar.select('.filter-summary');
+  // Find or create the summary container in the dedicated filter summary area
+  let summary = d3.select('#filter-summary-container').select('.filter-summary');
   if (summary.empty()) {
-    // Insert summary at the beginning of the sidebar
-    summary = sidebar.insert('div', ':first-child')
+    // Create summary in the dedicated container
+    const summaryContainer = d3.select('#filter-summary-container');
+    summary = summaryContainer.append('div')
       .attr('class', 'filter-summary');
   }
   
@@ -1192,12 +1369,12 @@ function updateFilterSummary() {
   // Add header
   summary.append('h4')
     .attr('class', 'section-header')
-    .text('📊 Data Summary');
+    .text('Filter Results Summary');
   
   // Use the best available data source
   let originalData = app.originalCsvData || app.csvData;
   
-  if (!originalData || !app.filteredCsvData) {
+  if (!originalData) {
     summary.append('p')
       .attr('class', 'filter-stats')
       .text('No data available');
@@ -1205,21 +1382,33 @@ function updateFilterSummary() {
   }
   
   const originalCount = originalData.length;
+  
+  if (!app.filteredCsvData) {
+    // No filters applied yet
+    summary.append('p')
+      .attr('class', 'filter-stats')
+      .text(`Total rows: ${originalCount.toLocaleString()}`);
+    summary.append('p')
+      .attr('class', 'filter-stats')
+      .text('Apply filters to see results here');
+    return;
+  }
+  
   const filteredCount = app.filteredCsvData.length;
   const removedCount = originalCount - filteredCount;
   const percentageRemoved = ((removedCount/originalCount)*100).toFixed(1);
   
   summary.append('p')
     .attr('class', 'filter-stats')
-    .text(`📄 Total rows: ${originalCount.toLocaleString()}`);
+    .text(`Total rows: ${originalCount.toLocaleString()}`);
   
   summary.append('p')
     .attr('class', 'filter-stats')
-    .text(`✅ Visible rows: ${filteredCount.toLocaleString()}`);
+    .text(`Visible rows: ${filteredCount.toLocaleString()}`);
   
   summary.append('p')
     .attr('class', 'filter-stats')
-    .text(`🚫 Filtered out: ${removedCount.toLocaleString()} (${percentageRemoved}%)`);
+    .text(`Filtered out: ${removedCount.toLocaleString()} (${percentageRemoved}%)`);
 }
 
 // Utility function for debouncing
@@ -1434,7 +1623,7 @@ function showBoundingBoxInfo(coords) {
   // Replace the original control-info with bbox-info
   const originalInfo = drawAreaGroup.querySelector('.control-info');
   if (originalInfo) {
-    originalInfo.style.display = 'none';
+    originalInfo.classList.add('hidden');
   }
   
   if (!drawAreaGroup.contains(bboxInfo)) {
@@ -1452,7 +1641,7 @@ function hideBoundingBoxInfo() {
   }
   
   if (originalInfo) {
-    originalInfo.style.display = 'block';
+    originalInfo.classList.remove('hidden');
   }
 }
 
@@ -2065,15 +2254,7 @@ function updateHistogram() {
 // Simple tooltip functions
 function showTooltip(event, text) {
   const tooltip = d3.select('body').append('div')
-    .attr('class', 'tooltip')
-    .style('position', 'absolute')
-    .style('background', 'rgba(0,0,0,0.8)')
-    .style('color', 'white')
-    .style('padding', '8px')
-    .style('border-radius', '4px')
-    .style('font-size', '12px')
-    .style('pointer-events', 'none')
-    .style('z-index', '1000');
+    .attr('class', 'tooltip');
   
   tooltip.html(text)
     .style('left', (event.pageX + 10) + 'px')
@@ -2239,16 +2420,16 @@ function updateUploadSuccess(filename, rowCount) {
 function enableNextButton(button) {
   if (button) {
     button.disabled = false;
-    button.style.opacity = '1';
-    button.style.pointerEvents = 'auto';
+    button.classList.remove('button-disabled');
+    button.classList.add('button-enabled');
   }
 }
 
 function disableNextButton(button) {
   if (button) {
     button.disabled = true;
-    button.style.opacity = '0.5';
-    button.style.pointerEvents = 'none';
+    button.classList.remove('button-enabled');
+    button.classList.add('button-disabled');
   }
 }
 
@@ -2257,27 +2438,14 @@ function showError(message) {
   
   // Create toast notification
   const toast = document.createElement('div');
-  toast.style.cssText = `
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background: #ef4444;
-    color: white;
-    padding: 12px 20px;
-    border-radius: 8px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-    z-index: 10000;
-    font-size: 14px;
-    max-width: 300px;
-    animation: slideIn 0.3s ease;
-  `;
+  toast.className = 'toast error';
   toast.textContent = message;
   
   document.body.appendChild(toast);
   
   // Remove after 4 seconds
   setTimeout(() => {
-    toast.style.animation = 'slideOut 0.3s ease';
+    toast.classList.add('slide-out');
     setTimeout(() => toast.remove(), 300);
   }, 4000);
 }
@@ -2287,27 +2455,14 @@ function showSuccess(message) {
   
   // Create toast notification
   const toast = document.createElement('div');
-  toast.style.cssText = `
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background: #10b981;
-    color: white;
-    padding: 12px 20px;
-    border-radius: 8px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-    z-index: 10000;
-    font-size: 14px;
-    max-width: 300px;
-    animation: slideIn 0.3s ease;
-  `;
+  toast.className = 'toast success';
   toast.textContent = message;
   
   document.body.appendChild(toast);
   
   // Remove after 4 seconds
   setTimeout(() => {
-    toast.style.animation = 'slideOut 0.3s ease';
+    toast.classList.add('slide-out');
     setTimeout(() => toast.remove(), 300);
   }, 4000);
 }
@@ -2317,27 +2472,14 @@ function showInfo(message) {
   
   // Create toast notification
   const toast = document.createElement('div');
-  toast.style.cssText = `
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background: #3b82f6;
-    color: white;
-    padding: 12px 20px;
-    border-radius: 8px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-    z-index: 10000;
-    font-size: 14px;
-    max-width: 300px;
-    animation: slideIn 0.3s ease;
-  `;
+  toast.className = 'toast info';
   toast.textContent = message;
   
   document.body.appendChild(toast);
   
   // Remove after 4 seconds
   setTimeout(() => {
-    toast.style.animation = 'slideOut 0.3s ease';
+    toast.classList.add('slide-out');
     setTimeout(() => toast.remove(), 300);
   }, 4000);
 }
@@ -2493,9 +2635,7 @@ function updateBinPreview() {
   if (!paletteWarning) {
     paletteWarning = document.createElement('div');
     paletteWarning.id = 'palette-warning';
-    paletteWarning.className = 'input-help';
-    paletteWarning.style.color = '#ffb4b4';
-    paletteWarning.style.marginTop = '6px';
+    paletteWarning.className = 'input-help warning-text';
     const paletteControls = document.getElementById('palette-controls');
     paletteControls.appendChild(paletteWarning);
   }
@@ -2545,14 +2685,8 @@ function updateBinPreview() {
     // Place in legend container, top right
     const legendContainer = document.querySelector('.legend-container');
     if (legendContainer) {
-      legendContainer.style.position = 'relative';
-      copyBtn.style.position = 'absolute';
-      copyBtn.style.right = '8px';
-      copyBtn.style.top = '8px';
-      copyBtn.style.background = 'none';
-      copyBtn.style.border = 'none';
-      copyBtn.style.cursor = 'pointer';
-      copyBtn.style.padding = '2px 6px';
+      legendContainer.classList.add('positioned');
+      copyBtn.className = 'copy-legend-btn';
       legendContainer.appendChild(copyBtn);
     }
   }
@@ -2582,11 +2716,11 @@ function updateBinPreview() {
     if (binPreview && !legendContainer.contains(infoLayer)) {
       legendContainer.insertBefore(infoLayer, binPreview);
     }
-    legendContainer.style.display = 'block';
+    legendContainer.classList.add('visible');
   }
   
   if (binPreviewCard) {
-    binPreviewCard.style.display = 'block';
+    binPreviewCard.classList.add('visible');
   }
 }
 
@@ -2754,27 +2888,21 @@ function updateDownloadInfo() {
       // Update back button text to be more helpful when warnings exist
       if (elements.backToResolution) {
         elements.backToResolution.textContent = '← Adjust Settings';
-        elements.backToResolution.style.background = 'rgba(239, 68, 68, 0.2)';
-        elements.backToResolution.style.borderColor = 'rgba(239, 68, 68, 0.5)';
-        elements.backToResolution.style.color = 'rgba(255, 255, 255, 0.9)';
+        elements.backToResolution.classList.add('warning');
+        elements.backToResolution.classList.remove('normal');
       }
     } else {
       // Reset back button to normal state
       if (elements.backToResolution) {
         elements.backToResolution.textContent = '← Go Back & Adjust';
-        elements.backToResolution.style.background = 'rgba(255, 255, 255, 0.1)';
-        elements.backToResolution.style.borderColor = 'rgba(255, 255, 255, 0.3)';
-        elements.backToResolution.style.color = 'rgba(255, 255, 255, 0.8)';
+        elements.backToResolution.classList.add('normal');
+        elements.backToResolution.classList.remove('warning');
       }
     }
     
     // Add detailed size info
     const sizeInfo = document.createElement('div');
-    sizeInfo.style.cssText = `
-      margin-top: 10px;
-      font-size: 12px;
-      color: rgba(255, 255, 255, 0.7);
-    `;
+    sizeInfo.className = 'download-size-info';
     sizeInfo.innerHTML = `
       <strong>Download sizes:</strong><br>
       Single file: ${formatSize(singleSize)}<br>
@@ -2868,14 +2996,12 @@ function copyLegendAsHTML() {
       if (!feedback) {
         feedback = document.createElement('div');
         feedback.id = 'copy-legend-feedback';
-        feedback.className = 'input-help';
-        feedback.style.color = '#b4ffb4';
-        feedback.style.marginTop = '4px';
+        feedback.className = 'input-help success-text';
         copyBtn.parentElement.insertBefore(feedback, copyBtn.nextSibling);
       }
       feedback.textContent = 'Legend HTML copied!';
-      feedback.style.display = 'block';
-      setTimeout(() => { feedback.style.display = 'none'; }, 1200);
+      feedback.classList.add('visible');
+      setTimeout(() => { feedback.classList.remove('visible'); feedback.classList.add('hidden'); }, 1200);
     }
   });
 }
@@ -2902,18 +3028,14 @@ function setupBinInputValidation() {
   if (!binStepWarning) {
     binStepWarning = document.createElement('div');
     binStepWarning.id = 'bin-step-warning';
-    binStepWarning.className = 'input-help';
-    binStepWarning.style.color = '#ffb4b4';
-    binStepWarning.style.marginTop = '4px';
+    binStepWarning.className = 'input-help warning-text';
     binStepInput.parentElement.appendChild(binStepWarning);
   }
   let binCountWarning = document.getElementById('bin-count-warning');
   if (!binCountWarning) {
     binCountWarning = document.createElement('div');
     binCountWarning.id = 'bin-count-warning';
-    binCountWarning.className = 'input-help';
-    binCountWarning.style.color = '#ffb4b4';
-    binCountWarning.style.marginTop = '4px';
+    binCountWarning.className = 'input-help warning-text';
     binCountInput.parentElement.appendChild(binCountWarning);
   }
   function validateBinInputs() {
@@ -2992,7 +3114,7 @@ function renderDownloadPreview() {
   const legendContainer = document.getElementById('download-legend-container');
   if (legendContainer) {
     legendContainer.innerHTML = '';
-    legendContainer.style.display = 'block';
+    legendContainer.classList.add('visible');
     // Copy legend from main preview if available
     const mainLegend = document.querySelector('.legend-container');
     if (mainLegend && mainLegend.innerHTML) {
