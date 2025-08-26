@@ -32,6 +32,9 @@ class AppState {
   }
 
   updateProgress() {
+
+    console.log("Calling updateProgress()");
+
     const progress = (this.currentStep / this.totalSteps) * 100;
     const progressFill = document.querySelector('.progress-fill');
     if (progressFill) {
@@ -40,6 +43,8 @@ class AppState {
   }
 
   goToStep(stepNumber) {
+
+    console.log("Calling goToStep()");
     // Hide all steps
     document.querySelectorAll('.step').forEach(step => {
       step.classList.remove('active');
@@ -64,7 +69,7 @@ class AppState {
         setTimeout(() => initializeAreaStep(), 100);
       } else if (stepNumber === 5) {
         // Initialize resolution step and trigger processing
-        console.log('📊 Entering resolution step - triggering data processing...');
+        console.log('Entering resolution step - triggering data processing...');
         setTimeout(() => {
           initializeResolutionStep();
           processData();
@@ -369,6 +374,7 @@ function processCSVFile(file) {
       if (!data.columns) {
         throw new Error('Could not read columns from CSV.');
       }
+
       // Check for required columns (case-insensitive, trimmed)
       const normalizedColumns = data.columns.map(c => c.trim().toLowerCase());
       const hasLat = normalizedColumns.includes('latitude');
@@ -466,7 +472,7 @@ function initializeFilterStep() {
   });
   
   // Use the best available data source
-  let dataToUse = app.originalCsvData || app.filteredCsvData || app.csvData;
+  let dataToUse = app.originalCsvData; //|| app.filteredCsvData || app.csvData;
   
   if (!dataToUse) {
     console.error('❌ No CSV data available for filtering');
@@ -617,12 +623,10 @@ function createFilterControls(data) {
     .attr('class', 'filter-panel-title')
     .text('Data Filtering');
   
-
-  
   // Add header to filter controls
-  filterControlsContainer.append('h4')
-    .attr('class', 'section-header')
-    .text('Column Filters');
+  // filterControlsContainer.append('h4')
+  //   .attr('class', 'section-header')
+  //   .text('Column Filters');
   
   // Helper function to determine filter type (uses sample data for type detection only)
   function determineFilterType(sampleData, column, uniqueValues) {
@@ -1941,8 +1945,11 @@ function assignPointsToHexagons(data, resolution) {
 
 function createHexagonFeatures(hexMap, binEdges, binLabels) {
   const features = [];
+
+  console.log("Hexmap", hexMap);
   
   hexMap.forEach((points, h3Index) => {
+
     const count = points.length;
     const bin = getBinLabel(count, binEdges, binLabels);
     

@@ -109,6 +109,8 @@
             <li>Comma-separated CSV format only (not semicolon or tab-separated)</li>
             <li>Coordinates must be numeric: latitude (-90 to 90), longitude (-180 to 180)</li>
             <li>Example: <code>latitude,longitude<br>40.7128,-74.0060<br>51.5074,-0.1278</code></li>
+            <li>If using fire data from FIRMS, favor using the VIIRS satellite data</li>
+            <li>Dates should be in the format YYYY-MM-DD. Other formats still work, but may have issues with filtering.</li>
           </ul>
         </div>
       </div>
@@ -143,7 +145,7 @@
         <div class="filter-controls" id="filter-controls">
           <div class="filter-instructions">
             <p><strong>Expand any column</strong> to access its filter options. You can filter by categories (select specific values), numbers (set min/max ranges), or dates (choose start/end dates). Active filters are highlighted with blue accents.</p>
-            <p><strong>If you are working with fire maps from FIRMS, remember to remove low confidence entries in the highlighted confidence filter!</strong></p>
+            <p><strong>If you are working with fire maps from VIIRS (one of the stallites at FIRMS), remember to remove low confidence entries in the highlighted confidence filter!</strong></p>
           </div>
           <!-- Filter controls will be generated here -->
         </div>
