@@ -9,6 +9,8 @@
     --accent-color: #4facfe;
     --text-dark-bg: #ffffff;
     --disabled-color: #cde1ee;
+    --table-color-a: #f4f2f2;
+    --table-color-b: #e0dfde;
 }
 
 /* Reset and Base Styles */
@@ -328,9 +330,6 @@ body {
 
 /* Filter Step */
 .filter-container {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 2rem;
     margin-bottom: 2rem;
 }
 
@@ -360,17 +359,14 @@ body {
 }
 
 .filter-instructions {
-    background: white;
     padding: 1rem;
     border-radius: 8px;
     margin-bottom: 1.5rem;
-    border-left: 4px solid #4facfe;
+    text-align: left;
 }
 
 .filter-instructions p {
     margin-bottom: 0.5rem;
-    font-size: 0.9rem;
-    color: #495057;
 }
 
 .filter-instructions p:last-child {
@@ -829,4 +825,410 @@ body {
 
 .hidden {
     display: none;
+}
+
+/* ============================================================================
+   DATA PREVIEW TABLE STYLES
+   ============================================================================ */
+
+   .preview-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 14px;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Header styling */
+.preview-table thead {
+    background: var(--primary-color);
+    color: var(--text-dark-bg);
+}
+
+.preview-table th {
+    padding: 12px 16px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: none;
+}
+
+/* Zebra striping */
+.preview-table tbody tr:nth-child(even) {
+    background-color: var(--table-color-a);
+}
+
+.preview-table tbody tr:nth-child(odd) {
+    background-color: var(--table-color-b);
+}
+
+/* Cell styling */
+.preview-table td {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--bg-color);
+    vertical-align: top;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Table container */
+.data-preview {
+    max-height: 400px;
+    overflow-y: auto;
+    background: var(--box-color);
+}
+
+.table-icon {
+    cursor: pointer;
+    text-decoration: underline;
+    font-size: 0.8rem;
+    font-weight: 300;
+}
+
+.column-header {
+    min-width: 60px;
+}
+
+/* Filter popup styles */
+.disabled {
+    display: none;
+}
+
+/* ============================================================================
+   FILTER POPUP STYLES
+   ============================================================================ */
+
+.filter-popup {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    width: 500px;
+    max-width: 90vw;
+    max-height: 80vh;
+    overflow: hidden;
+    z-index: 1000;
+    border: 1px solid #e9ecef;
+}
+
+.filter-popup-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    background: var(--primary-color);
+    color: white;
+}
+
+.filter-popup-header h4 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.close-filter-btn {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background-color 0.2s;
+}
+
+.close-filter-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.filter-popup-content {
+    padding: 24px;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+/* Filter Type Selector */
+.filter-type-selector {
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.filter-type-selector label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #495057;
+}
+
+.filter-type-selector select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    font-size: 14px;
+    background: white;
+}
+
+/* Filter Content */
+.filter-content {
+    margin-bottom: 24px;
+}
+
+/* Categorical Filter */
+.categorical-filter .filter-summary {
+    margin-bottom: 16px;
+    padding: 12px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    border-left: 4px solid var(--primary-color);
+}
+
+.categorical-filter .filter-summary span {
+    color: #495057;
+    font-size: 14px;
+}
+
+.more-indicator {
+    color: #dc3545;
+    font-size: 13px;
+    font-style: italic;
+}
+
+.value-list {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    padding: 12px;
+    background: #f8f9fa;
+}
+
+.filter-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.filter-checkbox input[type="checkbox"] {
+    margin: 0;
+    width: 16px;
+    height: 16px;
+}
+
+.filter-checkbox span {
+    color: #495057;
+}
+
+.filter-actions {
+    margin-top: 16px;
+    display: flex;
+    gap: 10px;
+}
+
+.filter-actions button {
+    padding: 8px 16px;
+    border: 1px solid #ced4da;
+    background: white;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s;
+}
+
+.filter-actions button:hover {
+    background: #f8f9fa;
+    border-color: #adb5bd;
+}
+
+/* Numeric Filter */
+.numeric-filter .filter-summary {
+    margin-bottom: 16px;
+    padding: 12px;
+    background: #e7f3ff;
+    border-radius: 6px;
+    border-left: 4px solid #007bff;
+    color: #0056b3;
+    font-size: 14px;
+}
+
+.range-inputs {
+    display: flex;
+    gap: 16px;
+}
+
+.range-inputs label {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 14px;
+    color: #495057;
+}
+
+.range-inputs input {
+    padding: 8px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+/* Date Filter */
+.date-filter .date-format-selector {
+    margin-bottom: 16px;
+}
+
+.date-format-selector label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #495057;
+}
+
+.date-format-selector select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.date-range {
+    display: flex;
+    gap: 16px;
+}
+
+.date-range label {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 14px;
+    color: #495057;
+}
+
+.date-range input {
+    padding: 8px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+/* Filter Popup Actions */
+.filter-popup-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    padding-top: 20px;
+    border-top: 1px solid #e9ecef;
+}
+
+.filter-popup-actions button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.apply-filter-btn {
+    background: var(--primary-color);
+    color: white;
+}
+
+.apply-filter-btn:hover {
+    background: var(--primary-color-dark);
+}
+
+.clear-filter-btn {
+    background: #6c757d;
+    color: white;
+}
+
+.clear-filter-btn:hover {
+    background: #5a6268;
+}
+
+/* ============================================================================
+   ACTIVE FILTERS DISPLAY
+   ============================================================================ */
+
+.active-filters-container {
+    margin: 1rem 0;
+    padding: 1rem;
+    background: var(--box-color);
+    border-radius: 12px;
+    border: 1px solid var(--accent-color);
+}
+
+.active-filters-container h4 {
+    margin: 0 0 15px 0;
+    color: var(--text-color);
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.active-filters-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.filter-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: var(--primary-color);
+    color: white;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.filter-tag .remove-filter {
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    padding: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background-color 0.2s;
+}
+
+.filter-tag .remove-filter:hover {
+    background: var(--disabled-color);
+}
+
+.no-filters-message {
+    color: var(--text-color);
+    font-style: italic;
+    margin: 0;
 }

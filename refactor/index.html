@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hexbin Maker - Refactored</title>
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/siimple-icons/siimple-icons.css" />
     <link rel="icon" type="image/png" href="../og-image.png">
 </head>
 <body>
@@ -24,7 +25,7 @@
                 <div class="progress-fill" id="progress-fill"></div>
             </div>
             <div class="progress-text">
-                <span id="current-step">Step 1</span> of <span id="total-steps">5</span>
+                Step <span id="current-step">1</span> of <span id="total-steps">5</span>
             </div>
         </div>
 
@@ -107,35 +108,59 @@
                 <div class="step-content">
                     <div class="step-header">
                         <h2>Filter Your Data</h2>
-                        <p>Review and filter your data before creating hexagons</p>
+                        <div class="filter-instructions">
+                            <p><strong>Expand any column</strong> to access its filter options. You can filter by categories (select specific values), numbers (set min/max ranges), or dates (choose start/end dates). Active filters are highlighted with blue accents.</p>
+                            <p><strong>If you are working with fire maps from VIIRS (one of the satellites at FIRMS), remember to remove low confidence entries in the highlighted confidence filter!</strong></p>
+                        </div>
                     </div>
                     
                     <div class="filter-container">
+                        <!-- Filter control window -->
+                        <div class="filter-popup" id="filter-popup" style="display: none;">
+                            <div class="filter-popup-header">
+                                <h4 id="filter-popup-title">Filter: Column Name</h4>
+                                <button class="close-filter-btn" onclick="app.closeFilterPopup()">×</button>
+                            </div>
+                            
+                            <div class="filter-popup-content">
+                                <div class="filter-type-selector">
+                                    <label for="filter-type-selector">Filter Type</label>
+                                    <select id="filter-type-selector">
+                                        <option value="categorical">Categorical (Select Values)</option>
+                                        <option value="numeric">Numeric (Range)</option>
+                                        <option value="date">Date (Range)</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="filter-content" id="filter-content">
+                                    <!-- Filter content will be dynamically generated here -->
+                                </div>
+                                
+                                <div class="filter-popup-actions">
+                                    <button class="clear-filter-btn" id="clear-filter-btn">Clear Filter</button>
+                                    <button class="apply-filter-btn" id="apply-filter-btn">Apply Filter</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Applied filter overview -->
+                        <div class="active-filters-container" id="active-filters-container">
+                            <h4>Active Filters</h4>
+                            <div class="active-filters-list" id="active-filters-list">
+                                <p class="no-filters-message">No filters applied</p>
+                            </div>
+                        </div>
+
+
                         <!-- Data Preview -->
                         <div class="data-preview" id="data-preview">
                             <!-- Data table will be shown here -->
                         </div>
                         
-                        <!-- Filter Controls -->
-                        <div class="filter-controls" id="filter-controls">
-                            <div class="filter-panel-title">
-                                <h3>Data Filtering</h3>
-                            </div>
-                            
-                            <div class="section-header">
-                                <h4>Column Filters</h4>
-                            </div>
-                            
-                            <div class="filter-instructions">
-                                <p><strong>Expand any column</strong> to access its filter options. You can filter by categories (select specific values), numbers (set min/max ranges), or dates (choose start/end dates). Active filters are highlighted with blue accents.</p>
-                                <p><strong>If you are working with fire maps from VIIRS (one of the satellites at FIRMS), remember to remove low confidence entries in the highlighted confidence filter!</strong></p>
-                            </div>
-                            
-                            <!-- Dynamic filter groups will be generated here -->
-                            <div class="filter-groups-container">
-                                <!-- Filter groups will be added here -->
-                            </div>
-                        </div>
+
+                        <!-- "Showing n rows of ..."-->
+                        <div id="preview-info"></div>
+
                     </div>
                     
                     <!-- Filter Summary -->
