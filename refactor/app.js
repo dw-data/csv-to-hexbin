@@ -202,13 +202,13 @@ class AppState {
     // Data validation methods
     canProceedToStep(stepNumber) {
         switch (stepNumber) {
-            case 2: // Upload -> Filter
-                return this.csvData !== null;
-            case 3: // Filter -> Area
+            case 3: // Upload -> Filter
+                return this.originalCsvData !== null;
+            case 4: // Filter -> Area
                 return this.hasValidData();
-            case 4: // Area -> Resolution
+            case 5: // Area -> Resolution
                 return this.spatialFilter !== null;
-            case 5: // Resolution -> Download
+            case 6: // Resolution -> Download
                 return this.processedData !== null;
             default:
                 return true;
@@ -216,7 +216,9 @@ class AppState {
     }
 
     hasValidData() {
-        const data = this.filteredCsvData || this.originalCsvData;
+        // User can proceed if they have either filtered data OR original data
+        // This allows users to skip filtering if they want
+        const data = this.filteredCsvData;
         return data && data.length > 0;
     }
 
@@ -381,7 +383,6 @@ class AppState {
             
             // Store data
             this.rawCsv = csvText;
-            this.csvData = parsedData;
             this.originalCsvData = parsedData;
             
             // Update UI
@@ -534,6 +535,7 @@ class AppState {
         this.rawCsv = null;
         this.csvData = null;
         this.originalCsvData = null;
+        this.filteredCsvData = null;
         
         // Reset UI to upload area
         this.resetUploadUI();
@@ -570,11 +572,21 @@ class AppState {
     initializeFilterStep() {
         console.log('🔍 Initializing filter step...');
         
+        // Initialize filteredCsvData with original data so user can proceed without filters
+        if (!this.filteredCsvData) {
+            this.filteredCsvData = this.originalCsvData;
+        }
+        
         // Create data preview
         this.createDataPreview();
 
         // Initialize active filters display
         this.updateActiveFiltersDisplay();
+        
+        // Update button states to ensure navigation is available
+        if (this.navigation) {
+            this.navigation.updateButtonStates();
+        }
         
         console.log('✅ Filter step initialized');
     }
@@ -668,74 +680,38 @@ class AppState {
 
 
     openFilterPopup(column, data) {
-        console.log(`�� Opening filter popup for column: ${column}`);
+        console.log(` Opening filter popup for column: ${column}`);
         
-        // Get the existing popup element
-        const popup = document.getElementById('filter-popup');
-        if (!popup) return;
+        // Create or get the popup for this specific column
+        let popup = document.getElementById(`filter-popup-${column}`);
         
-        // Update the popup title
-        const title = document.getElementById('filter-popup-title');
-        if (title) {
-            title.textContent = `Filter: ${column}`;
+        if (!popup) {
+            // Create new popup for this column
+            popup = this.createColumnFilterPopup(column);
+            document.body.appendChild(popup);
         }
         
-        // Update filter type selector
-        const typeSelector = document.getElementById('filter-type-selector');
-        if (typeSelector) {
-            typeSelector.value = 'categorical'; // Default to categorical
-            typeSelector.dataset.column = column;
-        }
+        // Update the popup content
+        this.updateColumnFilterPopup(popup, column, data);
         
-        // Update filter content
-        const filterContent = document.getElementById('filter-content');
-        if (filterContent) {
-            filterContent.innerHTML = this.createFilterContent(column, data, 'categorical');
-            filterContent.dataset.column = column;
-        }
-        
-        // Setup event listeners
-        this.setupFilterPopupListeners(column, data);
-        
-        // Show the popup
+        // Show this specific popup
         popup.style.display = 'flex';
-
+        
+        // Hide all other popups
+        this.hideOtherFilterPopups(column);
     }
 
     closeFilterPopup() {
-        const popup = document.getElementById('filter-popup');
-        if (popup) {
+        // Close all filter popups
+        document.querySelectorAll('.filter-popup').forEach(popup => {
             popup.style.display = 'none';
-        }
+        });
     }
 
     setupFilterPopupListeners(column, data) {
-        // Filter type change listener
-        const typeSelector = document.getElementById('filter-type-selector');
-        if (typeSelector) {
-            typeSelector.removeEventListener('change', this.handleFilterTypeChange);
-            typeSelector.addEventListener('change', (e) => {
-                this.handleFilterTypeChange(column, e.target.value, data);
-            });
-        }
-        
-        // Apply filter button
-        const applyBtn = document.getElementById('apply-filter-btn');
-        if (applyBtn) {
-            applyBtn.removeEventListener('click', this.handleApplyFilter);
-            applyBtn.addEventListener('click', () => {
-                this.handleApplyFilter(column);
-            });
-        }
-        
-        // Clear filter button
-        const clearBtn = document.getElementById('clear-filter-btn');
-        if (clearBtn) {
-            clearBtn.removeEventListener('click', this.handleClearFilter);
-            clearBtn.addEventListener('click', () => {
-                this.handleClearFilter(column);
-            });
-        }
+        // This method is no longer needed with the new column-specific popup system
+        // Event listeners are now set up in setupColumnFilterPopupListeners
+        console.log(`Event listeners for ${column} will be set up in setupColumnFilterPopupListeners`);
     }
 
     handleFilterTypeChange(column, newType, data) {
@@ -750,11 +726,17 @@ class AppState {
     
     handleApplyFilter(column) {
         console.log(`✅ Applying filter for column: ${column}`);
+        console.log(`🔍 Active filters BEFORE:`, JSON.stringify(this.activeFilters, null, 2));
+
         
         // Collect filter values and apply them
         const filterData = this.collectFilterData(column);
+        console.log(`🔍 Collected filter data:`, JSON.stringify(filterData, null, 2));
+
         if (filterData) {
             this.activeFilters[column] = filterData;
+            console.log(`🔍 Active filters AFTER setting ${column}:`, JSON.stringify(this.activeFilters, null, 2));
+
             this.applyFilters();
             this.closeFilterPopup();
             this.showToast(`Filter applied to ${column}`, 'success');
@@ -765,15 +747,33 @@ class AppState {
         console.log(`🗑️ Clearing filter for column: ${column}`);
         
         delete this.activeFilters[column];
+        
+        // If no more filters, reset to original data
+        if (Object.keys(this.activeFilters).length === 0) {
+            this.filteredCsvData = this.originalCsvData;
+        }
+        
         this.applyFilters();
         this.closeFilterPopup();
-        this.showToast(`Filter cleared for ${column}`, 'info');
+        this.showToast(`Filter cleared for ${column}`, 'success');
     }
     
     collectFilterData(column) {
         console.log("Collecting filter data for column:", column);
-        const filterType = document.getElementById('filter-type-selector').value;
+        
+        // Get the popup for this specific column
+        const popup = document.getElementById(`filter-popup-${column}`);
+        if (!popup) {
+            console.error(`No popup found for column: ${column}`);
+            return null;
+        }
+        
+        // Get filter type from this specific popup
+        const typeSelector = popup.querySelector('.filter-type');
+        const filterType = typeSelector ? typeSelector.value : 'categorical';
+        
         console.log("Filter type:", filterType);
+        
         switch (filterType) {
             case 'categorical':
                 return this.collectCategoricalFilterData(column);
@@ -787,20 +787,48 @@ class AppState {
     }
     
     collectCategoricalFilterData(column) {
-        const uncheckedBoxes = document.querySelectorAll(`#filter-content input[type="checkbox"]:not(:checked)`);
-        const excludedValues = Array.from(uncheckedBoxes).map(cb => cb.value);
+        console.log(` === COLLECTING CATEGORICAL DATA FOR ${column} ===`);
+
+        // Get the popup for this specific column
+        const popup = document.getElementById(`filter-popup-${column}`);
+        if (!popup) {
+            console.error(`No popup found for column: ${column}`);
+            return null;
+        }
         
+        // Only get checkboxes from this specific popup
+        const uncheckedBoxes = popup.querySelectorAll(`.filter-content input[type="checkbox"]:not(:checked)`);
+        console.log(`🔍 Found ${uncheckedBoxes.length} unchecked checkboxes`);
+
+        uncheckedBoxes.forEach((cb, i) => {
+            console.log(`🔍 Checkbox ${i}: value="${cb.value}", data-column="${cb.dataset.column}"`);
+        });
+
+        const excludedValues = Array.from(uncheckedBoxes).map(cb => cb.value);
+        console.log("Excluded values:", excludedValues);
         if (excludedValues.length === 0) return null;
         
-        return {
+        const filterValues = {
             type: 'categorical',
             exclude: excludedValues
-        };
+        }
+
+        console.log("Filter values:", filterValues);
+
+        return filterValues;
     }
     
     collectNumericFilterData(column) {
-        const minInput = document.querySelector('#filter-content .min-input');
-        const maxInput = document.querySelector('#filter-content .max-input');
+        // Get the popup for this specific column
+        const popup = document.getElementById(`filter-popup-${column}`);
+        if (!popup) {
+            console.error(`No popup found for column: ${column}`);
+            return null;
+        }
+        
+        // Only get inputs from this specific popup
+        const minInput = popup.querySelector('.min-input');
+        const maxInput = popup.querySelector('.max-input');
         
         const min = minInput ? parseFloat(minInput.value) : undefined;
         const max = maxInput ? parseFloat(maxInput.value) : undefined;
@@ -815,8 +843,16 @@ class AppState {
     }
     
     collectDateFilterData(column) {
-        const dateFrom = document.querySelector('#filter-content .date-from');
-        const dateTo = document.querySelector('#filter-content .date-to');
+        // Get the popup for this specific column
+        const popup = document.getElementById(`filter-popup-${column}`);
+        if (!popup) {
+            console.error(`No popup found for column: ${column}`);
+            return null;
+        }
+        
+        // Only get inputs from this specific popup
+        const dateFrom = popup.querySelector('.date-from');
+        const dateTo = popup.querySelector('.date-to');
         
         const from = dateFrom ? dateFrom.value : undefined;
         const to = dateTo ? dateTo.value : undefined;
@@ -852,13 +888,12 @@ class AppState {
         const displayValues = uniqueValues.slice(0, 100);
         const hasMore = uniqueValues.length > 100;
 
-        console.log(this.originalCsvData);
         
         let html = `
             <div class="categorical-filter">
                 <div class="filter-summary">
                     ${hasMore ? `<span class="more-indicator">Showing first 100 for performance reasons – consider limiting the amount of categories or using a different filter type)</span>` : ''}
-                    <br><br><span>${uniqueValues.length} unique values</span>
+                    <span>${uniqueValues.length} unique values</span>
                 </div>
                 <div class="value-list">
         `;
@@ -940,6 +975,7 @@ class AppState {
             // No filters, use original data
             this.filteredCsvData = this.originalCsvData;
             this.updateFilteredPreview(this.originalCsvData);
+            this.updateActiveFiltersDisplay();
             return;
         }
         
@@ -1002,15 +1038,21 @@ class AppState {
     }
     
     selectAllValues(column) {
-        document.querySelectorAll(`#filter-content input[type="checkbox"][data-column="${column}"]`).forEach(checkbox => {
-            checkbox.checked = true;
-        });
+        const popup = document.getElementById(`filter-popup-${column}`);
+        if (popup) {
+            popup.querySelectorAll(`.filter-content input[type="checkbox"][data-column="${column}"]`).forEach(checkbox => {
+                checkbox.checked = true;
+            });
+        }
     }
     
     clearAllValues(column) {
-        document.querySelectorAll(`#filter-content input[type="checkbox"][data-column="${column}"]`).forEach(checkbox => {
-            checkbox.checked = false;
-        });
+        const popup = document.getElementById(`filter-popup-${column}`);
+        if (popup) {
+            popup.querySelectorAll(`.filter-content input[type="checkbox"][data-column="${column}"]`).forEach(checkbox => {
+                checkbox.checked = false;
+            });
+        }
     }
 
     updateActiveFiltersDisplay() {
@@ -1081,6 +1123,11 @@ class AppState {
         
         delete this.activeFilters[column];
         
+        // If no more filters, reset to original data
+        if (Object.keys(this.activeFilters).length === 0) {
+            this.filteredCsvData = this.originalCsvData;
+        }
+        
         // Reapply filters
         this.applyFilters();
         
@@ -1098,6 +1145,122 @@ class AppState {
         return ToastManager.show(message, type);
     }
 
+    // Method to create a new filter popup for a specific column
+    createColumnFilterPopup(column) {
+        const popup = document.createElement('div');
+        popup.id = `filter-popup-${column}`;
+        popup.className = 'filter-popup';
+        popup.style.display = 'none';
+        
+        popup.innerHTML = `
+            <div class="filter-popup-header">
+                <h4 class="filter-popup-title">Filter: ${column}</h4>
+                <button class="close-filter-btn" onclick="app.closeColumnFilterPopup('${column}')">×</button>
+            </div>
+            
+            <div class="filter-popup-content">
+                <div class="filter-type-selector">
+                    <label>Filter Type</label>
+                    <select class="filter-type" data-column="${column}">
+                        <option value="categorical">Categorical (Select Values)</option>
+                        <option value="numeric">Numeric (Range)</option>
+                        <option value="date">Date (Range)</option>
+                    </select>
+                </div>
+                
+                <div class="filter-content" data-column="${column}">
+                    <!-- Filter content will be generated here -->
+                </div>
+                
+                <div class="filter-popup-actions">
+                    <button class="clear-filter-btn" data-column="${column}">Clear Filter</button>
+                    <button class="apply-filter-btn" data-column="${column}">Apply Filter</button>
+                </div>
+            </div>
+        `;
+        
+        // Setup event listeners for this specific popup
+        this.setupColumnFilterPopupListeners(popup, column);
+        
+        return popup;
+    }
+
+    // Method to update the content of a specific column filter popup
+    updateColumnFilterPopup(popup, column, data) {
+        // Update title
+        const title = popup.querySelector('.filter-popup-title');
+        if (title) {
+            title.textContent = `Filter: ${column}`;
+        }
+        
+        // Update filter content with stored type (or default to 'categorical')
+        const filterContent = popup.querySelector('.filter-content');
+        if (filterContent) {
+            const previousFilterType = popup.dataset.filterType || 'categorical';
+            filterContent.innerHTML = this.createFilterContent(column, data, previousFilterType);
+        }
+    }
+
+    // Method to hide all other filter popups except the one for the given column
+    hideOtherFilterPopups(currentColumn) {
+        // Hide all filter popups except the current one
+        document.querySelectorAll('.filter-popup').forEach(popup => {
+            if (popup.id !== `filter-popup-${currentColumn}`) {
+                popup.style.display = 'none';
+            }
+        });
+    }
+
+    // Method to close a specific column's filter popup
+    closeColumnFilterPopup(column) {
+        const popup = document.getElementById(`filter-popup-${column}`);
+        if (popup) {
+            popup.style.display = 'none';
+        }
+    }
+
+    // Method to setup event listeners for a specific column's filter popup
+    setupColumnFilterPopupListeners(popup, column) {
+        // Filter type change - only affects this popup
+        const typeSelector = popup.querySelector('.filter-type');
+        if (typeSelector) {
+            typeSelector.addEventListener('change', (e) => {
+                this.handleColumnFilterTypeChange(column, e.target.value);
+            });
+        }
+        
+        // Apply filter button - only affects this column
+        const applyBtn = popup.querySelector('.apply-filter-btn');
+        if (applyBtn) {
+            applyBtn.addEventListener('click', () => {
+                this.handleApplyFilter(column);
+            });
+        }
+        
+        // Clear filter button - only affects this column
+        const clearBtn = popup.querySelector('.clear-filter-btn');
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                this.handleClearFilter(column);
+            });
+        }
+    }
+
+    // Method to handle filter type change for a specific column
+    handleColumnFilterTypeChange(column, newType) {
+        console.log(`🔄 Changing filter type for ${column} to ${newType}`);
+        
+        const popup = document.getElementById(`filter-popup-${column}`);
+        if (popup) {
+            // Store the selected type in the popup's dataset for persistence
+            popup.dataset.filterType = newType;
+            
+            const filterContent = popup.querySelector('.filter-content');
+            if (filterContent) {
+                filterContent.innerHTML = this.createFilterContent(column, this.originalCsvData, newType);
+            }
+        }
+    }
 }
 
 // ============================================================================
