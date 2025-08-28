@@ -4,13 +4,23 @@
     --primary-color: #05b2fc;
     --secondary-color: #002186;
     --bg-color: #f0f6fa;
+    --box-color-light: #ffffff;
     --box-color: #f4f2f2;
+    --box-border-color: #5c718a;
     --text-color: #000821;
+    --light-text-color: #5c718a;
     --accent-color: #4facfe;
     --text-dark-bg: #ffffff;
     --disabled-color: #cde1ee;
     --table-color-a: #f4f2f2;
     --table-color-b: #e0dfde;
+    --breaking-red: #be232d;
+    --accent-red: #ef6c6c;
+    --acent-green: #63de9d;
+    --accent-yellow: #fae000;
+
+
+
 }
 
 /* Reset and Base Styles */
@@ -59,12 +69,17 @@ body {
 
 /* Intro screen */
 .intro-text {
+    color: var(--light-text-color);
     font-size: 1.1rem;
     opacity: 0.9;
     font-weight: 300;
     margin-bottom: 1rem;
     text-align: center;
     line-height: 2;
+}
+
+.intro-text strong {
+    font-weight: 900;
 }
 
 /* .intro-text p {
@@ -139,13 +154,13 @@ body {
 
 .step-header h2 {
     font-size: 2rem;
-    color: #2c3e50;
+    color: var(--text-color);
     margin-bottom: 0.5rem;
 }
 
 .step-header p {
     font-size: 1.1rem;
-    color: #6c757d;
+    color: var(--light-text-color);
 }
 
 /* Step Content */
@@ -269,23 +284,23 @@ body {
 }
 
 .upload-area {
-    border: 3px dashed #4facfe;
+    border: 2px dashed var(--primary-color);
     border-radius: 12px;
     padding: 3rem 2rem;
     text-align: center;
     cursor: pointer;
     transition: all 0.2s ease;
-    background: #f8f9fa;
+    background: var(--box-color-light);
 }
 
 .upload-area:hover {
-    border-color: #00f2fe;
-    background: #e3f2fd;
+    border-color: var(--primary-color);
+    background: var(--bg-color);
 }
 
 .upload-area.dragover {
-    border-color: #00f2fe;
-    background: #e3f2fd;
+    border-color: var(--primary-color);
+    background: var(--bg-color);
     transform: scale(1.02);
 }
 
@@ -300,7 +315,7 @@ body {
 }
 
 .upload-area p {
-    color: #6c757d;
+    color: var(--light-text-color);
 }
 
 .sample-data {
@@ -315,17 +330,17 @@ body {
 
 .sample-select {
     padding: 0.75rem 1rem;
-    border: 2px solid #e9ecef;
+    border: 2px solid var(--box-border-color);
     border-radius: 8px;
     font-size: 1rem;
-    background: white;
+    background: var(--box-color-light);
     cursor: pointer;
-    min-width: 300px;
 }
 
 .sample-select:focus {
     outline: none;
-    border-color: #4facfe;
+    border-color: var(--primary-color);
+
 }
 
 /* Filter Step */
@@ -773,15 +788,20 @@ body {
 }
 
 .toast.success {
-    background: #28a745;
+    background: var(--acent-green);
 }
 
 .toast.error {
-    background: #dc3545;
+    background: var(--accent-red);
 }
 
 .toast.info {
-    background: #17a2b8;
+    background: var(--primary-color);
+}
+
+.toast.warning {
+    background: var(--accent-yellow);
+    color: var(--text-color);
 }
 
 @keyframes slideIn {

@@ -15,6 +15,7 @@ class AppState {
         this.rawCsv = null;
         this.originalCsvData = null;
         this.filteredCsvData = null;
+        this.areaSelectedCsvData = null;
         this.processedData = null;
         
         // Filter state
@@ -229,6 +230,7 @@ class AppState {
         this.rawCsv = null;
         this.originalCsvData = null;
         this.filteredCsvData = null;
+        this.areaSelectedCsvData = null;
         this.processedData = null;
 
         this.activeFilters = {};
@@ -1138,13 +1140,6 @@ class AppState {
     }
     
 
-
-
-    // Toast method
-    showToast(message, type = 'info') {
-        return ToastManager.show(message, type);
-    }
-
     // Method to create a new filter popup for a specific column
     createColumnFilterPopup(column) {
         const popup = document.createElement('div');
@@ -1259,6 +1254,225 @@ class AppState {
             if (filterContent) {
                 filterContent.innerHTML = this.createFilterContent(column, this.originalCsvData, newType);
             }
+        }
+    }
+
+    // ================================================
+    // TOAST METHODS
+    // ================================================
+
+    // Toast method
+    showToast(message, type = 'info') {
+        return ToastManager.show(message, type);
+    }
+
+    // ================================================
+    // AREA FILTERING METHODS
+    // ================================================
+
+    initializeAreaStep() {
+        console.log('��️ Initializing area selection step...');
+        
+        // Initialize the basic map
+        this.initializeBasicMap();
+        
+        // Wait for map to fully load before setting up drawing
+        if (this.maps.area) {
+            this.maps.area.whenReady(() => {
+                this.setupRectangleDrawing();
+                console.log('🔧 Drawing controls set up after map ready');
+            });
+        }
+        
+        console.log('✅ Area step initialized');
+    }
+
+    initializeBasicMap() {
+        if (!this.maps.area) {
+            console.log('🗺️ Creating area selection map...');
+            
+            // Create Leaflet map
+            this.maps.area = L.map('map').setView([0, 0], 2);
+            
+            // Add OpenStreetMap tiles
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                maxZoom: 19
+            }).addTo(this.maps.area);
+            console.log('Tile layer created:', L.tileLayer);
+            
+            // Initialize drawn items layer
+            this.drawnItems = new L.FeatureGroup();
+            this.maps.area.addLayer(this.drawnItems);
+            
+            console.log('✅ Basic map initialized');
+        }
+    }
+
+    setupRectangleDrawing() {
+        console.log('🔧 Setting up rectangle drawing...');
+
+        // Create drawing control (rectangle only)
+        const drawControl = new L.Control.Draw({
+            draw: {
+                rectangle: true,
+                polygon: false,
+                polyline: false,
+                circle: false,
+                marker: false,
+                circlemarker: false
+            },
+            edit: false
+        });
+
+        console.log('Draw control created:', drawControl);
+    
+        // Check if map exists before adding control
+        console.log('Map object:', this.maps.area);
+        console.log('Map container:', this.maps.area?._container);
+        
+        this.maps.area.addControl(drawControl);
+        console.log('Draw control added to map', drawControl);
+
+        // Check if the control is actually in the DOM
+        setTimeout(() => {
+            const drawContainer = document.querySelector('.leaflet-draw');
+            console.log('Draw container in DOM:', drawContainer);
+            console.log('Draw container HTML:', drawContainer?.outerHTML);
+        }, 100);
+
+        
+        // Handle drawing events
+        this.maps.area.on('draw:created', (event) => {
+            this.handleRectangleDrawn(event);
+        });
+        console.log('Drawing event listeners set up');
+
+    }
+
+    handleRectangleDrawn(event) {
+        console.log('📐 Rectangle drawn');
+        
+        const layer = event.layer;
+        
+        // Clear any existing drawings
+        this.drawnItems.clearLayers();
+        
+        // Add the new rectangle
+        this.drawnItems.addLayer(layer);
+        
+        // Store the bounds as spatial filter
+        this.spatialFilter = layer.getBounds();
+        
+        // Update filtered data
+        this.applySpatialFilter();
+        
+        // Update UI
+        this.updateAreaSelectionUI();
+        
+        // Enable next button
+        if (this.navigation) {
+            this.navigation.updateButtonStates();
+        }
+        
+        this.showToast('Area selected successfully!', 'success');
+    }
+
+    applySpatialFilter() {
+        if (!this.spatialFilter || !this.filteredCsvData) {
+            return;
+        }
+        
+        console.log('🔍 Applying spatial filter...');
+        
+        // Filter CSV points within the bounds
+        const bounds = this.spatialFilter;
+        const filteredData = this.filteredCsvData.filter(point => {
+            const lat = parseFloat(point.latitude);
+            const lng = parseFloat(point.longitude);
+            
+            return lat >= bounds.getSouth() && 
+                lat <= bounds.getNorth() && 
+                lng >= bounds.getWest() && 
+                lng <= bounds.getEast();
+        });
+
+        // Sanity check: if no points in selected area, warn and discard
+        if (filteredData.length === 0) {
+            this.showToast('⚠️ No data points found in selected area. Please choose a larger area.', 'warning');
+            
+            // Discard the selection
+            console.log('🗑️ Discarding spatial selection due to zero points');
+    
+            // Clear the spatial filter
+            this.spatialFilter = null;
+            this.areaSelectedCsvData = null;
+            
+            // Clear the drawn rectangle from the map
+            if (this.drawnItems) {
+                this.drawnItems.clearLayers();
+            }
+            
+            // Disable next button since no valid selection
+            if (this.navigation) {
+                this.navigation.updateButtonStates();
+            }            
+            
+            return;
+        }
+        
+        // Save to areaSelectedCsvData instead of filteredCsvData
+        this.areaSelectedCsvData = filteredData;
+        
+        console.log(`🔍 Spatial filtering: ${this.originalCsvData.length} → ${filteredData.length} points`);
+
+    }
+
+    updateAreaSelectionUI() {
+        // Show selected area info
+        const bounds = this.spatialFilter;
+        const coords = {
+            north: bounds.getNorth().toFixed(4),
+            south: bounds.getSouth().toFixed(4),
+            east: bounds.getEast().toFixed(4),
+            west: bounds.getWest().toFixed(4)
+        };
+        
+        console.log('📍 Selected area coordinates:', coords);
+        
+        // You can add a visual indicator here if needed
+        // For now, we'll just log it
+    }
+
+    clearSpatialFilter() {
+        console.log('🗑️ Clearing spatial filter...');
+        
+        // Clear data state
+        this.spatialFilter = null;
+        
+        // Update filter display
+        //this.updateActiveFiltersDisplay();
+        
+        // Clear map visuals
+        this.clearMapVisuals();
+        
+        // Update button states
+        if (this.navigation) {
+            this.navigation.updateButtonStates();
+        }
+        
+        this.showToast('Geographic area filter removed', 'info');
+    }
+
+    clearMapVisuals() {
+        if (this.currentStep === 4 && this.maps.area) {
+            // Clear drawn items
+            if (this.drawnItems) {
+                this.drawnItems.clearLayers();
+            }
+            
+            // Reset map view
+            this.maps.area.setView([0, 0], 2);
         }
     }
 }
