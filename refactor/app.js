@@ -70,6 +70,11 @@ class AppState {
             csvUpload: document.getElementById('csv-upload'),
             uploadArea: document.getElementById('upload-area'),
             sampleCsvSelect: document.getElementById('sample-csv-select'),
+
+            // GeoJSON elements
+            uploadGeojson: document.getElementById('upload-geojson'),
+            geojsonUpload: document.getElementById('geojson-upload'),
+            sampleGeojsonSelect: document.getElementById('sample-geojson-select'),
             
             // Progress elements
             progressFill: document.getElementById('progress-fill'),
@@ -1276,13 +1281,14 @@ class AppState {
         // Initialize the basic map
         this.initializeBasicMap();
         
-        // Wait for map to fully load before setting up drawing
-        if (this.maps.area) {
-            this.maps.area.whenReady(() => {
-                this.setupRectangleDrawing();
-                console.log('🔧 Drawing controls set up after map ready');
-            });
-        }
+        // Setup rectangle drawing
+        this.setupRectangleDrawing();
+        
+        // Setup GeoJSON upload functionality
+        this.setupGeoJSONUpload();
+        
+        // Setup sample GeoJSON loading
+        this.setupSampleGeoJSONLoading();
         
         console.log('✅ Area step initialized');
     }
@@ -1384,48 +1390,275 @@ class AppState {
         }
         
         console.log('🔍 Applying spatial filter...');
+
+        let filteredData;
         
-        // Filter CSV points within the bounds
-        const bounds = this.spatialFilter;
-        const filteredData = this.filteredCsvData.filter(point => {
-            const lat = parseFloat(point.latitude);
-            const lng = parseFloat(point.longitude);
-            
-            return lat >= bounds.getSouth() && 
-                lat <= bounds.getNorth() && 
-                lng >= bounds.getWest() && 
-                lng <= bounds.getEast();
-        });
+        if (this.isLeafletBounds(this.spatialFilter)) {
+            // Rectangle filtering (fast)
+            filteredData = this.applyBoundingBoxFilter();
+        } else {
+            // GeoJSON filtering (hybrid approach)
+            filteredData = this.applyGeoJSONFilter();
+        }
+        
 
         // Sanity check: if no points in selected area, warn and discard
         if (filteredData.length === 0) {
             this.showToast('⚠️ No data points found in selected area. Please choose a larger area.', 'warning');
             
-            // Discard the selection
-            console.log('🗑️ Discarding spatial selection due to zero points');
-    
-            // Clear the spatial filter
-            this.spatialFilter = null;
-            this.areaSelectedCsvData = null;
-            
-            // Clear the drawn rectangle from the map
-            if (this.drawnItems) {
-                this.drawnItems.clearLayers();
-            }
-            
-            // Disable next button since no valid selection
-            if (this.navigation) {
-                this.navigation.updateButtonStates();
-            }            
+            this.discardSpatialSelection()           
             
             return;
         }
+
+        this.showToast('GeoJSON area loaded successfully', 'success');
         
         // Save to areaSelectedCsvData instead of filteredCsvData
         this.areaSelectedCsvData = filteredData;
         
         console.log(`🔍 Spatial filtering: ${this.originalCsvData.length} → ${filteredData.length} points`);
 
+    }
+
+    discardSpatialSelection() {
+        console.log('🗑️ Discarding spatial selection due to zero points');
+        
+        // Clear the spatial filter
+        this.spatialFilter = null;
+        this.areaSelectedCsvData = null;
+        
+        // Clear the drawn rectangle from the map
+        if (this.drawnItems) {
+            this.drawnItems.clearLayers();
+        }
+        
+        // Clear GeoJSON layer if it exists
+        if (this.geojsonLayer) {
+            this.maps.area.removeLayer(this.geojsonLayer);
+            this.geojsonLayer = null;
+        }
+        
+        // Disable next button since no valid selection
+        if (this.navigation) {
+            this.navigation.updateButtonStates();
+        }
+    }
+
+    isLeafletBounds(spatialFilter) {
+        return spatialFilter._southWest && spatialFilter._northEast;
+    }
+
+    applyBoundingBoxFilter() {
+        const bounds = this.spatialFilter;
+        return this.filteredCsvData.filter(point => {
+            const lat = parseFloat(point.latitude);
+            const lng = parseFloat(point.longitude);
+            
+            return lat >= bounds.getSouth() && 
+                   lat <= bounds.getNorth() && 
+                   lng >= bounds.getWest() && 
+                   lng <= bounds.getEast();
+        });
+    }
+
+    applyGeoJSONFilter() {
+        // Stage 1: Bounding box pre-filter
+        const bounds = this.getGeoJSONBounds(this.spatialFilter);
+        const bboxFiltered = this.filteredCsvData.filter(point => {
+            const lat = parseFloat(point.latitude);
+            const lon = parseFloat(point.longitude);
+            return lat >= bounds.south && lat <= bounds.north &&
+                   lon >= bounds.west && lon <= bounds.east;
+        });
+        
+        console.log(`🗺️ Stage 1 - Bounding box filter: ${this.filteredCsvData.length} → ${bboxFiltered.length} points`);
+        
+        // Stage 2: Precise Turf.js filtering
+        const pointFeatures = bboxFiltered.map(point => 
+            turf.point([parseFloat(point.longitude), parseFloat(point.latitude)])
+        );
+        const pointsCollection = turf.featureCollection(pointFeatures);
+        
+        const pointsWithin = turf.pointsWithinPolygon(pointsCollection, this.spatialFilter);
+        console.log(`🗺️ Stage 2 - pointsWithinPolygon: ${bboxFiltered.length} → ${pointsWithin.features.length} points`);
+        
+        // Map back to original data
+        const filteredCoordinates = pointsWithin.features.map(feature => feature.geometry.coordinates);
+        const filtered = bboxFiltered.filter(point => {
+            const pointCoords = [parseFloat(point.longitude), parseFloat(point.latitude)];
+            return filteredCoordinates.some(coord => 
+                coord[0] === pointCoords[0] && coord[1] === pointCoords[1]
+            );
+        });
+        
+        console.log(`🗺️ Total filtering result: ${this.filteredCsvData.length} → ${filtered.length} points`);
+        return filtered;
+    }
+
+    getGeoJSONBounds(geojson) {
+        let minLat = Infinity, maxLat = -Infinity;
+        let minLon = Infinity, maxLon = -Infinity;
+        
+        function processCoordinates(coords) {
+            if (Array.isArray(coords[0])) {
+                coords.forEach(processCoordinates);
+            } else {
+                const [lon, lat] = coords;
+                minLat = Math.min(minLat, lat);
+                maxLat = Math.max(maxLat, lat);
+                minLon = Math.min(minLon, lon);
+                maxLon = Math.max(maxLon, lon);
+            }
+        }
+        
+        if (geojson.type === 'FeatureCollection') {
+            geojson.features.forEach(feature => {
+                if (feature.geometry) {
+                    processCoordinates(feature.geometry.coordinates);
+                }
+            });
+        } else if (geojson.type === 'Feature') {
+            if (geojson.geometry) {
+                processCoordinates(geojson.geometry.coordinates);
+            }
+        } else if (geojson.type === 'Geometry') {
+            processCoordinates(geojson.coordinates);
+        }
+        
+        return {
+            south: minLat,
+            north: maxLat,
+            west: minLon,
+            east: maxLon
+        };
+    }
+
+    handleGeoJSONUpload(event) {
+        const file = event.target.files[0];
+        if (file) {
+            console.log('📁 GeoJSON file selected:', file.name);
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const geojson = JSON.parse(e.target.result);
+                    console.log('��️ GeoJSON loaded:', geojson.type);
+                    
+                    // Clear any existing selections
+                    this.clearAreaSelection();
+                    
+                    // Add GeoJSON to map
+                    this.addGeoJSONToMap(geojson);
+                    
+                    // Set as spatial filter
+                    this.spatialFilter = geojson;
+                    
+                    // Apply spatial filter with Turf.js
+                    this.applySpatialFilter();
+                    
+                } catch (error) {
+                    console.error('❌ Invalid GeoJSON file:', error);
+                    this.showToast('Invalid GeoJSON file', 'error');
+                }
+            };
+            reader.readAsText(file);
+        }
+    }
+    
+    addGeoJSONToMap(geojson) {
+        // Clear existing GeoJSON layers
+        this.clearGeoJSONLayers();
+        
+        // Add new GeoJSON layer
+        const geojsonLayer = L.geoJSON(geojson, {
+            style: {
+                color: '#4facfe',
+                weight: 2,
+                fillColor: '#4facfe',
+                fillOpacity: 0.2
+            }
+        }).addTo(this.maps.area);
+        
+        // Store reference to remove later
+        this.geojsonLayer = geojsonLayer;
+        
+        // Fit map to GeoJSON bounds
+        this.maps.area.fitBounds(geojsonLayer.getBounds());
+        
+        console.log('🗺️ GeoJSON added to map');
+    }
+    
+    clearGeoJSONLayers() {
+        if (this.geojsonLayer) {
+            this.maps.area.removeLayer(this.geojsonLayer);
+            this.geojsonLayer = null;
+        }
+    }
+    
+    clearAreaSelection() {
+        // Clear drawn items
+        if (this.drawnItems) {
+            this.drawnItems.clearLayers();
+        }
+        
+        // Clear GeoJSON layers
+        this.clearGeoJSONLayers();
+        
+        // Reset spatial filter
+        this.spatialFilter = null;
+        this.areaSelectedCsvData = null;
+    }
+
+    setupSampleGeoJSONLoading() {
+        const sampleSelect = this.elements.sampleGeojsonSelect;
+        
+        if (sampleSelect) {
+            sampleSelect.addEventListener('change', async (event) => {
+                const url = event.target.value;
+                if (!url) return;
+                
+                try {
+                    const response = await fetch(url);
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    
+                    const geojson = await response.json();
+                    
+                    // Clear any existing selections
+                    this.clearAreaSelection();
+                    
+                    // Add GeoJSON to map
+                    this.addGeoJSONToMap(geojson);
+                    
+                    // Set as spatial filter
+                    this.spatialFilter = geojson;
+                    
+                    // Apply spatial filter
+                    this.applySpatialFilter();
+                    
+                    // Reset selection
+                    sampleSelect.value = '';
+                    
+                } catch (error) {
+                    console.error('❌ Failed to load sample GeoJSON:', error);
+                    this.showToast(`Failed to load sample: ${error.message}`, 'error');
+                    sampleSelect.value = '';
+                }
+            });
+        }
+    }
+
+    setupGeoJSONUpload() {
+        const uploadGeojson = this.elements.uploadGeojson;
+        const geojsonUpload = this.elements.geojsonUpload;
+        
+        if (uploadGeojson && geojsonUpload) {
+            uploadGeojson.addEventListener('click', () => geojsonUpload.click());
+            geojsonUpload.addEventListener('change', (event) => {
+                this.handleGeoJSONUpload(event);
+            });
+        }
     }
 
     updateAreaSelectionUI() {
@@ -1449,6 +1682,7 @@ class AppState {
         
         // Clear data state
         this.spatialFilter = null;
+        this.areaSelectedCsvData = null;
         
         // Update filter display
         //this.updateActiveFiltersDisplay();
