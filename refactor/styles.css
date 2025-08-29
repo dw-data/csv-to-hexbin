@@ -1255,3 +1255,13 @@ body {
     font-style: italic;
     margin: 0;
 }
+
+/* leaflet custom icons */
+.my-marker-icon {
+  width: 6px;             /* radius: 3 → diâmetro ≈ 6 */
+  height: 6px;
+  background: var(--secondary-color);    /* fillColor */
+  border: 1px solid var(--bg-color); /* color + weight */
+  border-radius: 50%;     /* deixa redondinho */
+  opacity: 0.6;           /* fillOpacity */
+}

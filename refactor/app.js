@@ -24,6 +24,10 @@ class AppState {
         // Spatial filter state
         this.spatialFilter = null;
 
+        // Point preview
+        this.pointsLayer = null;
+        this.maxPointsToDisplay = 10000; // Configurable threshold
+
         // Configuration
         this.resolution = 2;
         this.binStep = 10;
@@ -1289,6 +1293,11 @@ class AppState {
         
         // Setup sample GeoJSON loading
         this.setupSampleGeoJSONLoading();
+
+        // If the user set the spatial filter before, apply it
+        if (this.spatialFilter) {
+            this.applySpatialFilter();
+        }
         
         console.log('✅ Area step initialized');
     }
@@ -1317,6 +1326,13 @@ class AppState {
 
     setupRectangleDrawing() {
         console.log('🔧 Setting up rectangle drawing...');
+        
+        // Only setup if drawing controls don't already exist
+        if (document.querySelector('.leaflet-draw')) {
+            console.log('Drawing controls already exist, skipping setup');
+            return;
+        }
+        
 
         // Create drawing control (rectangle only)
         const drawControl = new L.Control.Draw({
@@ -1363,9 +1379,15 @@ class AppState {
         
         // Clear any existing drawings
         this.drawnItems.clearLayers();
+
+        // Clear any existing GeoJSON layers
+        this.clearGeoJSONLayers();
         
         // Add the new rectangle
         this.drawnItems.addLayer(layer);
+
+        // Make the rectangle editable
+        this.enableRectangleEditing(layer);
         
         // Store the bounds as spatial filter
         this.spatialFilter = layer.getBounds();
@@ -1382,6 +1404,34 @@ class AppState {
         }
         
         this.showToast('Area selected successfully!', 'success');
+    }
+
+    enableRectangleEditing(layer) {
+        // Create edit control for this specific layer
+        const editControl = new L.EditToolbar.Edit(this.maps.area, {
+            featureGroup: this.drawnItems
+        });
+        
+        // Enable editing mode
+        editControl.enable();
+        
+        // Listen for edit events to update the spatial filter
+        layer.on('edit', (e) => {
+            console.log('✏️ Rectangle edited');
+            const editedLayer = e.target;
+            
+            // Update spatial filter with new bounds
+            this.spatialFilter = editedLayer.getBounds();
+            
+            // Reapply spatial filter with new bounds
+            this.applySpatialFilter();
+            
+            // Update UI
+            this.updateAreaSelectionUI();
+            
+            this.showToast('Area updated!', 'success');
+        });
+
     }
 
     applySpatialFilter() {
@@ -1415,6 +1465,9 @@ class AppState {
         
         // Save to areaSelectedCsvData instead of filteredCsvData
         this.areaSelectedCsvData = filteredData;
+
+        // Add points to map for visual feedback
+        this.addFilteredPointsToMap();
         
         console.log(`🔍 Spatial filtering: ${this.originalCsvData.length} → ${filteredData.length} points`);
 
@@ -1438,6 +1491,9 @@ class AppState {
             this.geojsonLayer = null;
         }
         
+        // Clear points layer
+        this.clearPointsLayer();
+
         // Disable next button since no valid selection
         if (this.navigation) {
             this.navigation.updateButtonStates();
@@ -1603,6 +1659,9 @@ class AppState {
         
         // Clear GeoJSON layers
         this.clearGeoJSONLayers();
+
+        // Clear points layer
+        this.clearPointsLayer();
         
         // Reset spatial filter
         this.spatialFilter = null;
@@ -1709,7 +1768,133 @@ class AppState {
             this.maps.area.setView([0, 0], 2);
         }
     }
-}
+
+
+    addFilteredPointsToMap() {
+
+        console.log('🎯 addFilteredPointsToMap called!'); 
+        console.log('Data:', this.areaSelectedCsvData);
+
+        // Clear existing points
+        this.clearPointsLayer();
+        
+        const pointCount = this.areaSelectedCsvData.length;
+        console.log('Point count:', pointCount); // ← Add this
+
+        
+        // Don't display if too many points
+        if (pointCount > this.maxPointsToDisplay) {
+            this.showToast(`⚠️ Too many points (${pointCount.toLocaleString()}) to display on map. Data will still be processed.`, 'warning');
+            return;
+        }
+        
+        // Choose display method based on point count
+        if (pointCount > 1000) {
+            // Use clustering for medium datasets
+            console.log('🎯 Using clustering for', pointCount, 'points');
+            this.addClusteredPoints();
+        } else {
+            // Use simple markers for small datasets
+            console.log('🎯 Using simple points for', pointCount, 'points');
+            this.addSimplePoints();
+        }
+        
+        console.log(`🗺️ Added ${pointCount} points to map`);
+    }
+    
+    addSimplePoints() {
+        
+        const customIcon = L.divIcon({
+            html: '<div class="custom-marker"></div>',
+            className: 'my-marker-icon',
+            iconSize: [12, 12]
+        });
+    
+        this.pointsLayer = L.layerGroup();
+    
+        this.areaSelectedCsvData.forEach(point => {
+            const marker = L.marker([point.latitude, point.longitude], {
+                icon: customIcon
+        });
+    
+        // Add popup with point info
+        marker.bindPopup(`
+            <strong>Point Data</strong><br>
+            Lat: ${point.latitude}<br>
+            Lon: ${point.longitude}<br>
+            ${this.getAdditionalPointInfo(point)}
+        `);
+            
+            this.pointsLayer.addLayer(marker);
+        });
+        
+        this.maps.area.addLayer(this.pointsLayer);
+    }
+    
+    addClusteredPoints() {
+        // Check if MarkerCluster is available
+        if (typeof L.markerClusterGroup === 'undefined') {
+            console.warn('MarkerCluster not available, falling back to simple points');
+            this.addSimplePoints();
+            return;
+        }
+
+        
+        this.pointsLayer = L.markerClusterGroup({
+            chunkedLoading: true,
+            maxClusterRadius: 50,
+            spiderfyOnMaxZoom: true,
+            showCoverageOnHover: true,
+            zoomToBoundsOnClick: true
+        });
+
+        const customIcon = L.divIcon({
+            html: '<div class="custom-marker"></div>',
+            className: 'my-marker-icon',
+            iconSize: [12, 12]
+        });
+        
+        this.areaSelectedCsvData.forEach(point => {
+            const marker = L.marker([point.latitude, point.longitude], {
+                icon: customIcon
+            });
+            
+            // Add popup with point info
+            marker.bindPopup(`
+                <strong>Point Data</strong><br>
+                Lat: ${point.latitude}<br>
+                Lon: ${point.longitude}<br>
+                ${this.getAdditionalPointInfo(point)}
+            `);
+            
+            this.pointsLayer.addLayer(marker);
+        });
+        
+        this.maps.area.addLayer(this.pointsLayer);
+    }
+
+    getAdditionalPointInfo(point) {
+        // Add any additional columns from your CSV data
+        const additionalInfo = [];
+        
+        // Common fire data columns
+        if (point.confidence) additionalInfo.push(`Confidence: ${point.confidence}`);
+        if (point.acq_date) additionalInfo.push(`Date: ${point.acq_date}`);
+        if (point.acq_time) additionalInfo.push(`Time: ${point.acq_time}`);
+        
+        return additionalInfo.length > 0 ? additionalInfo.join('<br>') : '';
+    }
+    
+    clearPointsLayer() {
+        if (this.pointsLayer) {
+            this.maps.area.removeLayer(this.pointsLayer);
+            this.pointsLayer = null;
+        }
+    }
+
+} // End of AppState class
+
+
 
 // ============================================================================
 // STEP NAVIGATION SYSTEM
