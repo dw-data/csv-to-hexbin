@@ -239,7 +239,8 @@
                         <p>Select the size of your hexagons and preview the results</p>
                     </div>
                     
-                    <div class="resolution-container">
+                    <!-- Main Controls and Preview Section -->
+                    <div class="main-controls-preview">
                         <div class="resolution-controls">
                             <div class="control-section">
                                 <h4>Select H3 resolution</h4>
@@ -279,18 +280,26 @@
                                 <p class="control-description">Group hexagons by point count</p>
                                 
                                 <div class="bin-controls">
-                                    <div class="bin-input">
-                                        <label for="bin-step">Bin step size:</label>
-                                        <input type="number" id="bin-step" min="1" max="100" value="10">
+                                    <div class="bin-input-wrapper">
+                                        <div class="bin-input">
+                                            <label for="bin-step">Bin step size:</label>
+                                            <input type="number" id="bin-step" min="1" max="100" value="10">
+                                        </div>
+
+                                        <div class="bin-input">
+                                            <label for="bin-count">Number of bins:</label>
+                                            <input type="number" id="bin-count" min="1" max="20" value="10">
+                                        </div>
+
                                     </div>
-                                    <div class="bin-input">
-                                        <label for="bin-count">Number of bins:</label>
-                                        <input type="number" id="bin-count" min="1" max="20" value="10">
+
+                                    <div class="bin-preview-container">
+                                        <h4>Preview your bin categories</h4>
+                                        <div class="bin-preview" id="bin-preview">
+                                            <!-- Bin preview will be shown here -->
+                                        </div>
                                     </div>
-                                </div>
-                                
-                                <div class="bin-preview" id="bin-preview">
-                                    <!-- Bin preview will be shown here -->
+                                    
                                 </div>
                             </div>
                         </div>
@@ -301,27 +310,29 @@
                                 <p>See your hexagons before downloading</p>
                             </div>
                             <div id="preview-map" class="preview-map"></div>
+
                         </div>
-                        
-                        <div class="legend-container" id="legend-container">
-                            <div class="legend-header">
-                                <h4>Legend</h4>
-                                <div class="legend-controls">
-                                    <div class="palette-controls">
-                                        <label for="palette-start-color">Start color:</label>
-                                        <input type="color" id="palette-start-color" value="#ffffff">
-                                        <label for="palette-end-color">End color:</label>
-                                        <input type="color" id="palette-end-color" value="#5e3c99">
-                                    </div>
+                    </div>
+                    
+                    <!-- Histogram Section - Separate from Preview Container -->
+                    <div class="histogram-section">
+                        <h4>Data Distribution</h4>
+                        <p>Visualize how your data is distributed across hexagons</p>
+                        <div class="histogram-container" id="histogram-container">
+                            <div class="histogram-wrapper">
+                                <div class="histogram-section">
+                                    <h4 class="histogram-title">Raw Point Count Distribution</h4>
+                                    <div id="raw-histogram" class="histogram-chart"></div>
                                 </div>
-                            </div>
-                            <div class="legend-content" id="legend-content">
-                                <!-- Legend will be generated here -->
+                                <div class="histogram-section">
+                                    <h4 class="histogram-title">Binned Data Distribution</h4>
+                                    <div id="binned-histogram" class="histogram-chart"></div>
+                                </div>
                             </div>
                         </div>
                     </div>
+
                 </div>
-                
                 <div class="step-navigation">
                     <button class="nav-button secondary" id="back-to-area">← Back</button>
                     <button class="nav-button primary" id="next-to-download" disabled>Generate Download Files! →</button>

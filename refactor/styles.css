@@ -447,17 +447,19 @@ body {
     border: 2px solid #e9ecef;
 }
 
-/* Resolution Step */
-.resolution-container {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+/* Main Controls and Preview Section */
+.main-controls-preview {
+    display: flex;
+    flex-direction: row;
     gap: 2rem;
 }
 
 .resolution-controls {
+    flex: 1;
     background: #f8f9fa;
     border-radius: 12px;
     padding: 1.5rem;
+    min-width: 0; /* Prevents flex item from overflowing */
 }
 
 .control-section {
@@ -537,10 +539,19 @@ body {
 }
 
 .bin-controls {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
+    display: flex;
     margin-bottom: 1.5rem;
+    flex-direction: column;
+}
+
+.bin-input-wrapper {
+    display: flex;
+    flex-direction: row;
+    gap: 1rem;
+}
+
+.bin-input {
+    flex: 1;
 }
 
 .bin-input label {
@@ -564,9 +575,11 @@ body {
 }
 
 .preview-container {
+    flex: 1;
     background: #f8f9fa;
     border-radius: 12px;
     padding: 1.5rem;
+    min-width: 0; /* Prevents flex item from overflowing */
 }
 
 .preview-header {
@@ -591,11 +604,413 @@ body {
     border: 2px solid #e9ecef;
 }
 
+/* Applied Configuration Summary */
+.applied-config-summary {
+    margin: 1rem 0;
+    padding: 1rem;
+    background: #e8f5e8;
+    border-radius: 8px;
+    border: 1px solid #c3e6c3;
+    font-size: 0.9rem;
+}
+
+.applied-config-summary h5 {
+    color: #2d5a2d;
+    margin: 0 0 0.5rem 0;
+    font-size: 1rem;
+}
+
+.applied-config-summary p {
+    color: #4a7c4a;
+    margin: 0 0 1rem 0;
+    font-size: 0.85rem;
+}
+
+/* Current Configuration Section */
+.current-config-section {
+    margin: 1rem 0;
+    padding: 1rem;
+    background: #fff3cd;
+    border-radius: 8px;
+    border: 1px solid #ffeaa7;
+    font-size: 0.9rem;
+}
+
+.current-config-section h5 {
+    color: #856404;
+    margin: 0 0 0.5rem 0;
+    font-size: 1rem;
+}
+
+.current-config-section p {
+    color: #856404;
+    margin: 0 0 1rem 0;
+    font-size: 0.85rem;
+}
+
+/* Configuration Items */
+.config-items {
+    display: flex;
+    flex-direction: row;
+    gap: 2rem;
+    margin-bottom: 1rem;
+}
+
+.config-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.config-label {
+    color: #6c757d;
+    font-weight: 500;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.config-value {
+    color: #2c3e50;
+    font-weight: 700;
+    font-size: 1.1rem;
+}
+
 .legend-container {
     background: #f8f9fa;
     border-radius: 12px;
     padding: 1.5rem;
     margin-top: 2rem;
+}
+
+/* Bin Preview */
+.bin-preview {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: white;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.legend-item:last-child {
+    border-bottom: none;
+}
+
+.legend-value {
+    font-weight: 600;
+    color: #2c3e50;
+    min-width: 60px;
+}
+
+.bin-color-swatch {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+}
+
+/* Generate Section */
+.generate-section {
+    text-align: center;
+    margin-top: 1.5rem;
+    padding: 1.5rem;
+    background: white;
+    border-radius: 8px;
+    border: 2px solid #e9ecef;
+}
+
+.generate-button {
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 1rem 2rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-bottom: 0.5rem;
+}
+
+.generate-button:hover {
+    background: var(--secondary-color);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.generate-button:active {
+    transform: translateY(0);
+}
+
+.generate-help {
+    color: #6c757d;
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+/* Preview Controls - Within Preview Container */
+.preview-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    margin-top: 2rem;
+    padding-top: 2rem;
+    border-top: 1px solid #e9ecef;
+    align-items: flex-start;
+}
+
+.bin-preview-container {
+    flex: 1;
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 1.5rem;
+    border: 1px solid #e9ecef;
+    min-width: 0; /* Prevents flex item from overflowing */
+}
+
+.bin-preview-container h4 {
+    color: #2c3e50;
+    margin-bottom: 0.5rem;
+}
+
+/* Optimize bin preview for horizontal layout */
+.bin-preview {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: white;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+    font-size: 0.9rem;
+    min-width: fit-content;
+}
+
+.bin-color-swatch {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    border: 1px solid #dee2e6;
+}
+
+.legend-value {
+    font-weight: 600;
+    color: #495057;
+}
+
+.generate-section-compact {
+    flex: 1;
+    text-align: center;
+    padding: 1rem;
+    min-width: 0; /* Prevents flex item from overflowing */
+}
+
+/* Prominent Generate Section (keeping for reference) */
+.generate-section-prominent {
+    text-align: center;
+    margin: 2rem 0;
+    padding: 2rem;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 12px;
+    border: 2px solid var(--primary-color);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.generate-header h4 {
+    color: var(--secondary-color);
+    margin-bottom: 0.5rem;
+    font-size: 1.3rem;
+}
+
+.generate-header p {
+    color: #6c757d;
+    margin-bottom: 1.5rem;
+    font-size: 1rem;
+}
+
+.generate-button-prominent {
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-bottom: 0.75rem;
+}
+
+.generate-button-prominent:hover {
+    background: var(--secondary-color);
+    transform: translateY(-1px);
+}
+
+.generate-button-prominent:active {
+    transform: translateY(0);
+}
+
+/* Disabled state for when no changes are pending */
+.generate-button-prominent:disabled {
+    background: #6c757d;
+    color: #adb5bd;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.generate-button-prominent:disabled:hover {
+    background: #6c757d;
+    transform: none;
+}
+
+/* Changes Indicator */
+.changes-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 6px;
+    color: #856404;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.indicator-dot {
+    width: 8px;
+    height: 8px;
+    background: #f39c12;
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+/* Histogram Section - Separate from Preview Container */
+.histogram-section {
+    margin-top: 2rem;
+    padding: 2rem;
+    border-radius: 12px;
+    flex: 1;
+    text-align: center;
+}
+
+.histogram-section h4 {
+    color: #2c3e50;
+    margin-bottom: 0.5rem;
+    text-align: center;
+    font-size: 1.3rem;
+}
+
+.histogram-section p {
+    color: #6c757d;
+    font-size: 0.9rem;
+    text-align: center;
+    margin-bottom: 1.5rem;
+
+}
+
+/* Histogram Container */
+.histogram-container {
+    background: var(--bg-color);
+    border-radius: 8px;
+    padding: 1rem;
+    border: 1px solid var(--box-border-color);
+}
+
+.histogram-header {
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.histogram-header h4 {
+    color: var(--text-color);
+    margin-bottom: 0.5rem;
+}
+
+.histogram-header p {
+    color: var(--light-text-color);
+    font-size: 0.9rem;
+}
+
+.histogram-instructions {
+    background: var(--bg-color);
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    border-left: 4px solid var(--primary-color);
+    font-size: 0.9rem;
+    line-height: 1.6;
+}
+
+.histogram-orange {
+    color: #fde725;
+    font-weight: 600;
+}
+
+.histogram-green {
+    color: #35b779;
+    font-weight: 600;
+}
+
+.histogram-svg {
+    display: block;
+    margin: 0 auto;
+    background: white;
+    border-radius: 8px;
+    padding: 1rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Side-by-side histogram layout */
+.histogram-wrapper {
+    display: flex;
+    gap: 2rem;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+.histogram-title {
+    color: #2c3e50;
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.histogram-chart {
+    background: var(--bg-color);
+    border-radius: 8px;
+    padding: 1rem;
+    border: 1px solid var(--box-border-color);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    min-height: 350px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .legend-header {

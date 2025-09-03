@@ -29,9 +29,9 @@ class AppState {
         this.maxPointsToDisplay = 10000; // Configurable threshold
 
         // Configuration
-        this.resolution = 2;
-        this.binStep = 10;
-        this.binCount = 10;
+        this.resolution = 5;
+        this.binStep = 5;
+        this.binCount = 6;
 
         // Colors
         
@@ -1612,6 +1612,11 @@ class AppState {
                     // Apply spatial filter with Turf.js
                     this.applySpatialFilter();
                     
+                    // Update button states since area is now selected
+                    if (this.navigation) {
+                        this.navigation.updateButtonStates();
+                    }
+                    
                 } catch (error) {
                     console.error('❌ Invalid GeoJSON file:', error);
                     this.showToast('Invalid GeoJSON file', 'error');
@@ -1695,6 +1700,11 @@ class AppState {
                     
                     // Apply spatial filter
                     this.applySpatialFilter();
+                    
+                    // Update button states since area is now selected
+                    if (this.navigation) {
+                        this.navigation.updateButtonStates();
+                    }
                     
                     // Reset selection
                     sampleSelect.value = '';
@@ -1890,6 +1900,756 @@ class AppState {
             this.maps.area.removeLayer(this.pointsLayer);
             this.pointsLayer = null;
         }
+    }
+
+    // ================================================
+    // RESOLUTION AND H3 PROCESSING METHODS
+    // ================================================
+
+    initializeResolutionStep() {
+        console.log('🔷 Initializing resolution step...');
+        
+        // Initialize the preview map
+        this.initializePreviewMap();
+        
+        // Setup resolution controls
+        this.setupResolutionControls();
+        
+        // Setup bin controls
+        this.setupBinControls();
+        
+        // Auto-generate hexagons with default values if we have data
+        if (this.areaSelectedCsvData && this.areaSelectedCsvData.length > 0) {
+            this.generateHexagonsInitial();
+        }
+        
+        // Update button states
+        if (this.navigation) {
+            this.navigation.updateButtonStates();
+        }
+        
+        console.log('✅ Resolution step initialized');
+    }
+
+    initializePreviewMap() {
+        if (!this.maps.preview) {
+            console.log('🗺️ Creating preview map...');
+            
+            // Create Leaflet map
+            this.maps.preview = L.map('preview-map').setView([0, 0], 2);
+            
+            // Add OpenStreetMap tiles
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                maxZoom: 19
+            }).addTo(this.maps.preview);
+            
+            console.log('✅ Preview map initialized');
+        }
+    }
+
+    setupResolutionControls() {
+
+        const resolutionSlider = document.getElementById('resolution');
+        const resValue = document.getElementById('res-value');
+        const resArea = document.getElementById('res-area');
+        
+        if (resolutionSlider && resValue && resArea) {
+            // Set the slider to match AppState
+            resolutionSlider.value = this.resolution;
+            
+            
+            // Update display on slider change
+            resolutionSlider.addEventListener('input', (e) => {
+                const value = parseInt(e.target.value);
+                this.resolution = value;
+                this.updateResolutionDisplay(value);
+                this.generateHexagons();
+            });
+            
+            // Initial display update
+            this.updateResolutionDisplay(this.resolution);
+        }
+    }
+
+    setupBinControls() {
+
+        const binStep = document.getElementById('bin-step');
+        const binCount = document.getElementById('bin-count');
+        
+        if (binStep && binCount) {
+            // Set inputs to match AppState
+            binStep.value = this.binStep;
+            binCount.value = this.binCount;
+            
+            // Update bin step
+            binStep.addEventListener('input', (e) => {
+                this.binStep = parseInt(e.target.value) || 10;
+                this.generateHexagons();
+            });
+            
+            // Update bin count
+            binCount.addEventListener('input', (e) => {
+                this.binCount = parseInt(e.target.value) || 10;
+                this.generateHexagons();
+            });
+            
+            // Initial bin preview (only show after first generation)
+            // Don't call updateBinPreview() here - wait for actual data
+            console.log('🔧 Bin controls setup complete - waiting for hexagon generation');
+        }
+        
+
+    }
+
+    updateResolutionDisplay(resolution) {
+        
+        const resValue = document.getElementById('res-value');
+        const resArea = document.getElementById('res-area');
+        
+        if (resValue) {
+            resValue.textContent = resolution;
+        }
+        
+        if (resArea) {
+            // H3 area calculations (approximate)
+            const h3Areas = {
+                0: '4,357,449 km²',
+                1: '609,788 km²',
+                2: '87,113 km²',
+                3: '12,445 km²',
+                4: '1,778 km²',
+                5: '254 km²',
+                6: '36 km²',
+                7: '5 km²',
+                8: '0.7 km²',
+                9: '0.1 km²',
+                10: '0.015 km²',
+                11: '0.002 km²',
+                12: '0.0003 km²',
+                13: '0.00004 km²',
+                14: '0.000006 km²',
+                15: '0.0000009 km²'
+            };
+            
+            resArea.textContent = `(${h3Areas[resolution]})`;
+        }
+        
+        // Update current configuration display
+        this.updateCurrentConfig();
+    }
+    
+    // Update the current configuration display (real-time updates)
+    updateCurrentConfig() {
+        const currentRes = document.getElementById('current-resolution');
+        const currentBinStep = document.getElementById('current-bin-step');
+        const currentBinCount = document.getElementById('current-bin-count');
+        
+        if (currentRes) {
+            currentRes.textContent = this.resolution;
+        }
+        
+        if (currentBinStep) {
+            currentBinStep.textContent = this.binStep;
+        }
+        
+        if (currentBinCount) {
+            currentBinCount.textContent = this.binCount;
+        }
+    }
+    
+    // Update the applied configuration display (only when hexagons are generated)
+    updateAppliedConfig() {
+        const appliedRes = document.getElementById('applied-resolution');
+        const appliedBinStep = document.getElementById('applied-bin-step');
+        const appliedBinCount = document.getElementById('applied-bin-count');
+        
+        if (appliedRes) {
+            appliedRes.textContent = this.resolution;
+        }
+        
+        if (appliedBinStep) {
+            appliedBinStep.textContent = this.binStep;
+        }
+        
+        if (appliedBinCount) {
+            appliedBinCount.textContent = this.binCount;
+        }
+    }
+
+    // Main H3 processing function
+    async performH3Processing() {
+        console.log('🔷 Starting H3 processing...');
+        
+        try {
+            // Show loading toast
+            const loadingToast = this.showToast('Processing data with H3...', 'loading');
+            
+            // Use already filtered data directly (no redundant filtering)
+            const filteredData = this.areaSelectedCsvData;
+            console.log(`📍 Using pre-filtered data: ${filteredData.length} points`);
+            
+            if (filteredData.length === 0) {
+                throw new Error('No points found within the selected area');
+            }
+            
+            // Step 1: Assign points to H3 hexagons
+            ToastManager.updateLoadingToast(loadingToast, 'Creating H3 hexagons...', 'loading');
+            const hexMap = this.assignPointsToHexagons(filteredData);
+            console.log(`🔷 Hexagon assignment: ${hexMap.size} unique hexagons`);
+            
+            // Step 2: Create GeoJSON features with binning
+            ToastManager.updateLoadingToast(loadingToast, 'Generating GeoJSON features...', 'loading');
+            const { binEdges, binLabels } = this.getUserBins();
+            const features = this.createHexagonFeatures(hexMap, binEdges, binLabels);
+            console.log(`📊 Feature creation: ${features.length} hexagon features`);
+            
+            // Store processed data
+            this.processedData = {
+                features: features,
+                hexagonCount: features.length,
+                totalPoints: this.areaSelectedCsvData.length,
+                filteredPointsCount: filteredData.length,
+                resolution: this.resolution,
+                binStep: this.binStep,
+                binCount: this.binCount,
+                binEdges: binEdges,
+                binLabels: binLabels
+            };
+            
+            // Update visualization
+            ToastManager.updateLoadingToast(loadingToast, 'Updating visualization...', 'loading');
+            this.updateVisualization();
+            
+            // Update applied configuration display
+            this.updateAppliedConfig();
+            
+            // Update button states
+            if (this.navigation) {
+                this.navigation.updateButtonStates();
+            }
+            
+            // Success toast
+            ToastManager.updateLoadingToast(loadingToast, `H3 processing complete: ${features.length} hexagons generated`, 'success');
+            
+            console.log('✅ H3 processing completed successfully');
+            
+        } catch (error) {
+            console.error('❌ H3 processing error:', error);
+            this.showToast(`Error processing data: ${error.message}`, 'error');
+            throw error;
+        }
+    }
+
+    assignPointsToHexagons(data, resolution = null) {
+        const res = resolution !== null ? resolution : this.resolution;
+        const hexMap = new Map();
+        
+        data.forEach(point => {
+            const lat = parseFloat(point.latitude);
+            const lon = parseFloat(point.longitude);
+            
+            // Skip invalid coordinates
+            //if (isNaN(lat) || isNaN(lon)) return;
+            
+            // Get H3 index for this point
+            const h3Index = h3.latLngToCell(lat, lon, res);
+            
+            // Add point to hexagon
+            if (!hexMap.has(h3Index)) {
+                hexMap.set(h3Index, []);
+            }
+            hexMap.get(h3Index).push(point);
+        });
+        
+        return hexMap;
+    }
+
+    createHexagonFeatures(hexMap, binEdges, binLabels) {
+        const features = [];
+        
+        hexMap.forEach((points, h3Index) => {
+            const count = points.length;
+            const bin = this.getBinLabel(count, binEdges, binLabels);
+            
+            // Get hexagon boundary coordinates
+            const boundary = h3.cellToBoundary(h3Index, true);
+            
+            features.push({
+                type: "Feature",
+                geometry: {
+                    type: "Polygon",
+                    coordinates: [boundary]
+                },
+                properties: {
+                    h3index: h3Index,
+                    count: count,
+                    bin: bin
+                }
+            });
+        });
+        
+        return features;
+    }
+
+    getUserBins() {
+        const step = this.binStep;
+        const count = this.binCount;
+        
+        const binEdges = [];
+        const binLabels = [];
+        
+        for (let i = 0; i < count; i++) {
+            const lower = i * step;
+            const upper = (i + 1) * step;
+            
+            if (i === 0) {
+                binEdges.push(lower); // lower is 0 for first bin
+            }
+            binEdges.push(upper);
+            
+            if (i === count - 1) {
+                // Last bin is open-ended
+                binLabels.push(`${lower + 1}+`); // Show 1+ for last bin
+                binEdges[binEdges.length - 1] = Infinity;
+            } else if (i === 0) {
+                binLabels.push(`1–${upper}`); // First bin label is 1–N
+            } else {
+                binLabels.push(`${lower + 1}–${upper}`); // All other bins are as before
+            }
+        }
+        
+        return { binEdges, binLabels };
+    }
+
+    getBinLabel(count, binEdges, binLabels) {
+        // If count is in the last bin (the '+' bin), return the last label
+        if (count >= binEdges[binEdges.length - 2]) {
+            return binLabels[binLabels.length - 1];
+        }
+        
+        for (let i = 0; i < binEdges.length - 1; i++) {
+            if (count >= binEdges[i] && count < binEdges[i + 1]) {
+                return binLabels[i];
+            }
+        }
+        
+        // fallback (should not be reached)
+        return binLabels[binLabels.length - 1];
+    }
+
+    updateBinPreview() {
+        const binPreview = document.getElementById('bin-preview');
+        if (!binPreview) return;
+        
+        // Only show legend if we have processed data
+        if (!this.processedData || !this.processedData.binLabels) {
+            binPreview.innerHTML = '<p class="text-center text-gray-500">Legend will appear after hexagons are generated</p>';
+            return;
+        }
+        
+        const binLabels = this.processedData.binLabels;
+        
+        // Legend swatches
+        const previewString = binLabels.map((label, index) => {
+            const color = this.getBinColor(label, binLabels);
+            return `<div class="legend-item" data-bin-label="${label}">
+                <div class="legend-value">${label}</div>
+            </div>`;
+        }).join('');
+        
+        // Update preview display
+        binPreview.innerHTML = previewString;
+        
+        console.log('✅ Bin preview updated with', binLabels.length, 'categories');
+    }
+    
+
+
+    getBinColor(binLabel, binLabels) {
+        // Simple color scale using D3
+        const index = binLabels.indexOf(binLabel);
+        if (index === -1) return '#cccccc';
+        
+        const n = binLabels.length;
+        const t = n === 1 ? 1 : index / (n - 1);
+        
+        // Use a simple color scale (white to purple)
+        const startColor = '#ffffff';
+        const endColor = '#5e3c99';
+        
+        return d3.interpolateLab(startColor, endColor)(t);
+    }
+    
+
+
+    updateVisualization() {
+        // Clear existing hexagon layers
+        if (this.hexagonLayer) {
+            this.maps.preview.removeLayer(this.hexagonLayer);
+        }
+        
+        // Add hexagon polygons to map if we have processed data
+        if (this.processedData && this.processedData.features.length > 0) {
+            console.log('🗺️ Adding hexagon polygons to map...');
+            
+            // Get color scale for binning
+            const binsArr = this.processedData.binLabels;
+            
+            // Create GeoJSON layer with custom styling
+            this.hexagonLayer = L.geoJSON(this.processedData.features, {
+                style: (feature) => {
+                    const bin = feature.properties.bin;
+                    const color = this.getBinColor(bin, binsArr);
+                    return {
+                        fillColor: color,
+                        weight: 1,
+                        opacity: 0.8,
+                        color: '#333',
+                        fillOpacity: 0.6
+                    };
+                },
+                onEachFeature: (feature, layer) => {
+                    const count = feature.properties.count;
+                    const bin = feature.properties.bin;
+                    const h3index = feature.properties.h3index;
+                    
+                    layer.bindPopup(`
+                        <strong>Hexagon ${h3index}</strong><br>
+                        Points: ${count}<br>
+                        Bin: ${bin}
+                    `);
+                }
+            }).addTo(this.maps.preview);
+            
+            // Fit map to hexagon bounds
+            this.maps.preview.fitBounds(this.hexagonLayer.getBounds());
+            
+            console.log(`🗺️ Added ${this.processedData.features.length} hexagon polygons to map`);
+        }
+        
+        // Update histogram and legend with current data
+        this.updateHistogram();
+        this.updateBinPreview();
+        
+
+    }
+    
+    // Initial hexagon generation (auto-generated on step load)
+    generateHexagonsInitial() {
+        console.log('🔷 Auto-generating initial hexagons...');
+        
+        if (!this.areaSelectedCsvData || this.areaSelectedCsvData.length === 0) {
+            console.log('❌ No data available for initial generation');
+            return;
+        }
+        
+        // Perform H3 processing without changing button state
+        this.performH3Processing().catch(error => {
+            console.error('Failed to generate initial hexagons:', error);
+        });
+    }
+
+    // Trigger H3 processing when user wants to generate hexagons
+    generateHexagons() {
+        console.log('🔷 User requested hexagon generation...');
+        
+        if (!this.areaSelectedCsvData || this.areaSelectedCsvData.length === 0) {
+            this.showToast('No data available for processing', 'error');
+            return;
+        }
+        
+
+        
+        // Perform H3 processing
+        this.performH3Processing().catch(error => {
+            console.error('Failed to generate hexagons:', error);
+        });
+    }
+
+    // // The d3 viz goes here
+    updateHistogram() {
+        const container = document.getElementById('histogram-container');
+        if (!container) return;
+        
+        // Check if we have processed data
+        if (!this.processedData || !this.processedData.features || this.processedData.features.length === 0) {
+            container.innerHTML = '<p class="text-center text-gray-500">Histogram will appear here after processing data</p>';
+            return;
+        }
+        
+        // Clear only the chart containers, not the HTML structure
+        const rawContainer = document.getElementById('raw-histogram');
+        const binnedContainer = document.getElementById('binned-histogram');
+        
+        if (rawContainer) {
+            rawContainer.innerHTML = '';
+        }
+        if (binnedContainer) {
+            binnedContainer.innerHTML = '';
+        }
+        
+        container.style.display = 'block';
+        
+        // Basic dimensions for each histogram
+        const width = 400;
+        const height = 300;
+        const margin = { top: 20, right: 20, bottom: 40, left: 60 };
+        const chartWidth = width - margin.left - margin.right;
+        const chartHeight = height - margin.top - margin.bottom;
+        
+        // Extract point counts from hexagon features
+        const counts = this.processedData.features.map(f => f.properties.count);
+        const maxPoints = d3.max(counts);
+        
+        // Calculate frequency of each point count for raw histogram
+        const pointCountFrequency = {};
+        counts.forEach(count => {
+            pointCountFrequency[count] = (pointCountFrequency[count] || 0) + 1;
+        });
+        
+        const frequencyData = Object.entries(pointCountFrequency).map(([count, frequency]) => ({
+            count: parseInt(count),
+            frequency: frequency
+        })).sort((a, b) => a.count - b.count);
+        
+        const maxFrequency = d3.max(Object.values(pointCountFrequency));
+        
+        // Calculate max values for binned histogram
+        let maxBinCount = 0;
+        if (this.processedData.binLabels) {
+            const userBins = [];
+            for (let i = 0; i < this.processedData.binLabels.length; i++) {
+                let x0, x1;
+                const label = this.processedData.binLabels[i];
+                
+                if (label.endsWith('+')) {
+                    const match = label.match(/(\d+)(?=\+)/);
+                    x0 = match ? parseInt(match[1], 10) : 0;
+                    x1 = maxPoints + 1;
+                } else {
+                    const [start, end] = label.split('–').map(Number);
+                    x0 = start;
+                    x1 = end;
+                }
+                
+                const hexagonCount = this.processedData.features.filter(feature => {
+                    const count = feature.properties.count;
+                    if (label.endsWith('+')) {
+                        return count >= x0;
+                    } else {
+                        return count >= x0 && count < x1;
+                    }
+                }).length;
+                
+                userBins.push({ x0, x1, count: hexagonCount, label });
+            }
+            maxBinCount = d3.max(userBins, d => d.count);
+        }
+        
+        // Use the maximum values across both histograms for shared scales
+        const sharedMaxY = Math.max(maxFrequency, maxBinCount);
+        
+        // Create shared scales for both histograms
+        const x = d3.scaleLinear()
+            .domain([0, maxPoints])
+            .range([0, chartWidth]);
+        
+        const y = d3.scaleLinear()
+            .domain([0, sharedMaxY])
+            .range([chartHeight, 0]);
+        
+        // LEFT HISTOGRAM: Raw point count distribution
+        
+        // Create left SVG
+        const leftSvg = d3.create('svg')
+            .attr('width', width)
+            .attr('height', height);
+        
+        const leftG = leftSvg.append('g')
+            .attr('transform', `translate(${margin.left},${margin.top})`);
+        
+        // Create bins for raw distribution (1-unit bins)
+        const rawBins = [];
+        for (let i = 0; i <= maxPoints; i++) {
+            const binCount = frequencyData.find(d => d.count === i)?.frequency || 0;
+            rawBins.push({
+                x0: i,
+                x1: i + 1,
+                count: binCount
+            });
+        }
+        
+        // Add bars for raw distribution
+        leftG.selectAll('.raw-bar')
+            .data(rawBins)
+            .enter()
+            .append('rect')
+            .attr('class', 'raw-bar')
+            .attr('x', d => x(d.x0))
+            .attr('y', d => y(d.count))
+            .attr('width', d => Math.max(1, (x(d.x1) - x(d.x0)) * 0.8))
+            .attr('height', d => chartHeight - y(d.count))
+            .attr('fill', '#6c757d')
+            .attr('opacity', 0.7)
+            .on('mouseover', function(event, d) {
+                d3.select(this).attr('opacity', 1);
+                
+                // Create tooltip
+                const tooltip = d3.select('body').append('div')
+                    .attr('class', 'histogram-tooltip')
+                    .style('position', 'absolute')
+                    .style('background', 'rgba(0, 0, 0, 0.8)')
+                    .style('color', 'white')
+                    .style('padding', '8px 12px')
+                    .style('border-radius', '4px')
+                    .style('font-size', '12px')
+                    .style('pointer-events', 'none')
+                    .style('z-index', '1000')
+                    .style('opacity', 0);
+                
+                tooltip.html(`There are ${d.count} hexagons with exactly ${d.x0} points inside`)
+                    .style('left', (event.pageX + 10) + 'px')
+                    .style('top', (event.pageY - 10) + 'px')
+                    .transition()
+                    .duration(200)
+                    .style('opacity', 1);
+            })
+            .on('mousemove', function(event) {
+                d3.select('.histogram-tooltip')
+                    .style('left', (event.pageX + 10) + 'px')
+                    .style('top', (event.pageY - 10) + 'px');
+            })
+            .on('mouseout', function() {
+                d3.select(this).attr('opacity', 0.7);
+                d3.select('.histogram-tooltip').remove();
+            });
+        
+        // Add axes for left histogram
+        leftG.append('g')
+            .attr('transform', `translate(0,${chartHeight})`)
+            .call(d3.axisBottom(x).ticks(5));
+        
+        leftG.append('g')
+            .call(d3.axisLeft(y).ticks(5));
+        
+        const rawHistogramContainer = document.getElementById('raw-histogram');
+        if (rawHistogramContainer) {
+            rawHistogramContainer.appendChild(leftSvg.node());
+        } else {
+            console.error('❌ raw-histogram container not found');
+            return;
+        }
+        
+        // RIGHT HISTOGRAM: Binned data
+        if (this.processedData.binLabels) {
+            // Reuse the userBins calculated above
+            const userBins = [];
+            for (let i = 0; i < this.processedData.binLabels.length; i++) {
+                let x0, x1;
+                const label = this.processedData.binLabels[i];
+                
+                if (label.endsWith('+')) {
+                    const match = label.match(/(\d+)(?=\+)/);
+                    x0 = match ? parseInt(match[1], 10) : 0;
+                    x1 = maxPoints + 1;
+                } else {
+                    const [start, end] = label.split('–').map(Number);
+                    x0 = start;
+                    x1 = end;
+                }
+                
+                // Count how many hexagons fall into this bin
+                const hexagonCount = this.processedData.features.filter(feature => {
+                    const count = feature.properties.count;
+                    if (label.endsWith('+')) {
+                        return count >= x0;
+                    } else {
+                        return count >= x0 && count < x1;
+                    }
+                }).length;
+                
+                userBins.push({ x0, x1, count: hexagonCount, label });
+            }
+            
+            // Create right SVG
+            const rightSvg = d3.create('svg')
+                .attr('width', width)
+                .attr('height', height);
+            
+            const rightG = rightSvg.append('g')
+                .attr('transform', `translate(${margin.left},${margin.top})`);
+            
+            // Add bars for binned data
+            rightG.selectAll('.bin-bar')
+                .data(userBins)
+                .enter()
+                .append('rect')
+                .attr('class', 'bin-bar')
+                .attr('x', d => x(d.x0))
+                .attr('y', d => y(d.count))
+                .attr('width', d => Math.max(0, x(d.x1) - x(d.x0)))
+                .attr('height', d => chartHeight - y(d.count))
+                .attr('fill', '#28a745')
+                .attr('opacity', 0.7)
+                .on('mouseover', function(event, d) {
+                    d3.select(this).attr('opacity', 1);
+                    
+                    // Create tooltip
+                    const tooltip = d3.select('body').append('div')
+                        .attr('class', 'histogram-tooltip')
+                        .style('position', 'absolute')
+                        .style('background', 'rgba(0, 0, 0, 0.8)')
+                        .style('color', 'white')
+                        .style('padding', '8px 12px')
+                        .style('border-radius', '4px')
+                        .style('font-size', '12px')
+                        .style('pointer-events', 'none')
+                        .style('z-index', '1000')
+                        .style('opacity', 0);
+                    
+                    // Format the range text
+                    let rangeText;
+                    if (d.label.endsWith('+')) {
+                        rangeText = `${d.x0}+`;
+                    } else {
+                        rangeText = `${d.x0}-${d.x1 }`;
+                    }
+                    
+                    tooltip.html(`There are ${d.count} hexagons with a point count in the ${rangeText} range`)
+                        .style('left', (event.pageX + 10) + 'px')
+                        .style('top', (event.pageY - 10) + 'px')
+                        .transition()
+                        .duration(200)
+                        .style('opacity', 1);
+                })
+                .on('mousemove', function(event) {
+                    d3.select('.histogram-tooltip')
+                        .style('left', (event.pageX + 10) + 'px')
+                        .style('top', (event.pageY - 10) + 'px');
+                })
+                .on('mouseout', function() {
+                    d3.select(this).attr('opacity', 0.7);
+                    d3.select('.histogram-tooltip').remove();
+                });
+            
+            // Add axes for right histogram
+            rightG.append('g')
+                .attr('transform', `translate(0,${chartHeight})`)
+                .call(d3.axisBottom(x).ticks(5));
+            
+            rightG.append('g')
+                .call(d3.axisLeft(y).ticks(5));
+            
+            const binnedHistogramContainer = document.getElementById('binned-histogram');
+            if (binnedHistogramContainer) {
+                binnedHistogramContainer.appendChild(rightSvg.node());
+            } else {
+                console.error('❌ binned-histogram container not found');
+            }
+        }
+        
+        console.log('✅ Two side-by-side histograms created');
     }
 
 } // End of AppState class
