@@ -57,10 +57,11 @@
 
                         <div class="disclaimer">
 
-                            <p>The tool was made for visualizing data download from <a href="https://firms.modaps.eosdis.nasa.gov/active_fire/" target="_blank" class="simple-link">FIRMS</a>, but it works with any CSV with latitude/longitude columns</p>
 
-                            <p>It was built with lots of help from LLMs and the power of <a href="https://turfjs.org/" target="_blank" class="simple-link">Turf.js</a>, <a href="https://leafletjs.com/" target="_blank" class="simple-link">Leaflet</a>, <a href="https://d3js.org/" target="_blank" class="simple-link">D3</a> and <a href="https://h3geo.org/" target="_blank" class="simple-link">H3</a></p>
-
+                            <p>This tool was originally developed at <a href="https://www.dw.com/en/data/t-43091100" target="_blank" class="simple-link">DW's Data Team</a> for visuaizing <a href="https://firms.modaps.eosdis.nasa.gov/active_fire/" target="_blank" class="simple-link">FIRMS</a> data on custom <a href="https://datawrapper.de/" target="_blank" class="simple-link">Datawrapper</a> maps.</p>
+                            
+                            <p>It was built with lots of help from LLMs and the open source power of <a href="https://siimple.xyz/icons/" target="_blank" class="simple-link">Siimple</a>, <a href="https://turfjs.org/" target="_blank" class="simple-link">Turf.js</a>, <a href="https://leafletjs.com/" target="_blank" class="simple-link">Leaflet</a>, <a href="https://d3js.org/" target="_blank" class="simple-link">D3</a>, <a href="https://h3geo.org/" target="_blank" class="simple-link">H3</a>, and <a href="https://coloris.js.org/" target="_blank" class="simple-link">Coloris.</a></p>
+                            
                             <p>This was an experiment at <i>vibe coding</i> and all the recklessness that it entails – always check if your data is sound. </p>
 
                         </div>
@@ -81,24 +82,24 @@
             <section id="step-upload" class="step">
                 <div class="step-content">
                     <div class="step-header">
-                        <h2>Upload Your Data</h2>
-                        <p>Upload a CSV file with latitude and longitude coordinates</p>
+                        <h2>Upload your CSV</h2>
+                        <p>Files must have a <i>latitude</i> and <i>longitude</i> column</p>
+                        <p>Maximum 100MB or 500,000 rows</p>
                     </div>
                     
                     <div class="upload-container">
                         <div class="upload-area" id="upload-area">
                             <div class="upload-icon">📁</div>
-                            <h3>Drop your CSV file here</h3>
+                            <h3>Drop your file here</h3>
                             <p>or click to browse</p>
                             <input type="file" id="csv-upload" accept=".csv" style="display: none;">
                         </div>
                         
                         <div class="sample-data">
-                            <h4>Try with sample data:</h4>
+                            <h4>Or try with sample data (<strong>not</strong> updated – just for testing)</h4>
                             <select id="sample-csv-select" class="sample-select">
                                 <option value="">Select a sample dataset...</option>
                                 <option value="../csv-samples/Europe_Fires_VIIRS _7d_20250701.csv">Europe Fires (VIIRS, 7 days)</option>
-                                <option value="../csv-samples/Global_Fires_VIIRS _7d_20250701.csv">Global Fires (VIIRS, 7 days)</option>
                                 <option value="../csv-samples/J2_VIIRS_C2_Global_48h.csv">Global Fires (VIIRS, 48 hours)</option>
                                 <option value="../csv-samples/J2_VIIRS_C2_Global_7d.csv">Global Fires (VIIRS, 7 days)</option>
                             </select>
@@ -116,14 +117,17 @@
             <section id="step-filter" class="step">
                 <div class="step-content">
                     <div class="step-header">
-                        <h2>Filter Your Data</h2>
+                        <h2>Filter the data</h2>
                         <div class="filter-instructions">
-                            <p><strong>Expand any column</strong> to access its filter options. You can filter by categories (select specific values), numbers (set min/max ranges), or dates (choose start/end dates). Active filters are highlighted with blue accents.</p>
-                            <p><strong>If you are working with fire maps from VIIRS (one of the satellites at FIRMS), remember to remove low confidence entries in the highlighted confidence filter!</strong></p>
+                            <p><strong>Expand any column</strong> to access its filter options. You can filter by categories (select specific values), numbers (set min/max ranges), or dates (choose start/end dates).</p>
+
                         </div>
                     </div>
+
+
                     
                     <div class="filter-container">
+
                         <!-- Filter control window -->
                         <div class="filter-popup" id="filter-popup" style="display: none;">
                             <div class="filter-popup-header">
@@ -154,12 +158,15 @@
 
                         <!-- Applied filter overview -->
                         <div class="active-filters-container" id="active-filters-container">
+
                             <h4>Active Filters</h4>
+                            <p class="filter-warning">If you are working with fire maps from VIIRS (one of the satellites at FIRMS), remember to filter out low confidence entries in the confidence column!</p>
+
+
                             <div class="active-filters-list" id="active-filters-list">
                                 <p class="no-filters-message">No filters applied</p>
                             </div>
                         </div>
-
 
                         <!-- Data Preview -->
                         <div class="data-preview" id="data-preview">
@@ -188,8 +195,9 @@
             <section id="step-area" class="step">
                 <div class="step-content">
                     <div class="step-header">
-                        <h2>Select Geographic Area</h2>
-                        <p>Choose the geographic area for your hexagon map</p>
+                        <h2>Select area</h2>
+                        <p>Choose the geographic area for your hexagon map.</p> 
+                        <p>Points outside of this area will be excluded from the map.</p>
                     </div>
                     
                     <div class="area-container">
@@ -201,7 +209,7 @@
                             
                             <div class="control-group">
                                 <h4>Upload your GeoJSON</h4>
-                                <button class="control-button" id="upload-geojson">📁 Upload GeoJSON</button>
+                                <button class="control-button" id="upload-geojson">Browse...</button>
                                 <input type="file" id="geojson-upload" accept=".geojson,.json" style="display: none;">
                             </div>
                             
@@ -243,8 +251,8 @@
                     <div class="main-controls-preview">
                         <div class="resolution-controls">
                             <div class="control-section">
-                                <h4>Select H3 resolution</h4>
-                                <p class="control-description">0 = largest hexagon, 15 = smallest</p>
+                                <h4>Select resolution</h4>
+                                <p class="control-description">This will control the size of your hexagons. 0 = largest, 15 = smallest</p>
                                 
                                 <div class="resolution-slider">
                                     <input type="range" id="resolution" min="0" max="15" value="2">
@@ -275,31 +283,24 @@
                                 </div>
                             </div>
                             
-                            <div class="control-section">
+                            <div class="control-section last-control">
                                 <h4>Configure binning</h4>
-                                <p class="control-description">Group hexagons by point count</p>
+                                <p class="control-description">Define how many bins you want to create and how many points per bin</p>
                                 
                                 <div class="bin-controls">
                                     <div class="bin-input-wrapper">
                                         <div class="bin-input">
-                                            <label for="bin-step">Bin step size:</label>
-                                            <input type="number" id="bin-step" min="1" max="100" value="10">
+                                            <label for="bin-count">Number of bins</label>
+                                            <input type="number" id="bin-count" min="1" max="9999" value="6">
                                         </div>
 
                                         <div class="bin-input">
-                                            <label for="bin-count">Number of bins:</label>
-                                            <input type="number" id="bin-count" min="1" max="20" value="10">
+                                            <label for="bin-step">Points per bin</label>
+                                            <input type="number" id="bin-step" min="1" max="9999" value="5">
                                         </div>
 
                                     </div>
 
-                                    <div class="bin-preview-container">
-                                        <h4>Preview your bin categories</h4>
-                                        <div class="bin-preview" id="bin-preview">
-                                            <!-- Bin preview will be shown here -->
-                                        </div>
-                                    </div>
-                                    
                                 </div>
                             </div>
                         </div>
@@ -311,21 +312,30 @@
                             </div>
                             <div id="preview-map" class="preview-map"></div>
 
+                            <div class="bin-preview-container control-section last-control">
+                                <h4>The map will have the following bins</h4>
+                                <p class="control-description">You can change the color legend in the next step</p>
+                                <ul class="bin-preview" id="bin-preview">
+                                    <!-- Bin preview will be shown here -->
+                                </ul>
+                            </div>
+
                         </div>
                     </div>
                     
                     <!-- Histogram Section - Separate from Preview Container -->
                     <div class="histogram-section">
                         <h4>Data Distribution</h4>
-                        <p>Visualize how your data is distributed across hexagons</p>
+                        <p>Visualize how your data is distributed across hexagons.</p> 
+                        <p>If the two histograms have very different shapes, consider playing around with the size and number of the bins.</p>
                         <div class="histogram-container" id="histogram-container">
                             <div class="histogram-wrapper">
                                 <div class="histogram-section">
-                                    <h4 class="histogram-title">Raw Point Count Distribution</h4>
+                                    <h4 class="histogram-title">How many hexagons have exactly X points?</h4>
                                     <div id="raw-histogram" class="histogram-chart"></div>
                                 </div>
                                 <div class="histogram-section">
-                                    <h4 class="histogram-title">Binned Data Distribution</h4>
+                                    <h4 class="histogram-title">How many hexagons are in each bin?</h4>
                                     <div id="binned-histogram" class="histogram-chart"></div>
                                 </div>
                             </div>
@@ -343,11 +353,41 @@
             <section id="step-download" class="step">
                 <div class="step-content">
                     <div class="step-header">
-                        <h2>Download Your Hexagon Map</h2>
-                        <p>Your hexagon map is ready! Choose your download option</p>
+                        <h2>Downlod & customize legend</h2>
+                        <p>Your hexagon map is ready! You can also customize an HTML color legend to use in Datawrapper</p>
                     </div>
                     
                     <div class="download-container">
+                        
+                        <div class="preview-container">
+                            <div class="preview-header">
+                                <h4>Preview map</h4>
+                                <p>Your processed hexagon map ready for download</p>
+                            </div>
+                            <div id="download-preview-map" class="preview-map"></div>
+                            
+                            <!-- Color Customization Section -->
+                            <div class="color-customization">
+                                <div class="color-customization-header">
+                                    <h5>Customize color legend</h5>
+                                    <p>You can change the colors and then copy the HTML legend to use in your Datawrapper map</p>
+                                </div>
+                                <div id="color-legend" class="color-legend">
+                                    <!-- Color legend will be populated here -->
+                                </div>
+                                <div class="color-controls">
+                                    <button id="copy-legend-html" class="copy-legend-btn" title="Copy HTML Legend">
+                                        <span><i class="si-copy"></i>Copy HTML legend</span>
+                                    </button>
+                                    <button id="reset-colors" class="btn btn-outline-secondary btn-sm">
+                                        <i class="si-erase"></i> Reset to default colors
+                                    </button>
+
+                                </div>
+
+                            </div>
+                        </div>
+
                         <div class="download-info" id="file-info">
                             <div class="info-item">
                                 <span class="info-label">Hexagons generated:</span>
@@ -358,55 +398,35 @@
                                 <span class="info-value" id="file-size">0 KB</span>
                             </div>
                         </div>
-                        
-                        <div class="preview-container">
-                            <div class="preview-header">
-                                <h4>Final Preview Map</h4>
-                                <p>Your processed hexagon map ready for download</p>
-                            </div>
-                            <div id="download-preview-map" class="preview-map"></div>
-                            
-                            <!-- Color Customization Section -->
-                            <div class="color-customization">
-                                <div class="color-customization-header">
-                                    <h5>Customize Colors</h5>
-                                    <div class="color-controls">
-                                        <button id="reset-colors" class="btn btn-outline-secondary btn-sm">
-                                            Reset to Defaults
-                                        </button>
-                                        <button id="copy-legend-html" class="copy-legend-btn" title="Copy HTML Legend">
-                                            <span style="font-size:18px;">📋</span>
-                                        </button>
-                                    </div>
-                                </div>
-                                <div id="color-legend" class="color-legend">
-                                    <!-- Color legend will be populated here -->
-                                </div>
-                                <div id="copy-legend-feedback" class="copy-feedback" style="display: none;">
-                                    Legend HTML copied!
-                                </div>
-                            </div>
-                        </div>
-                        
+
+                
+
                         <div class="download-options">
+
                             <div class="download-option">
-                                <h4>Single File</h4>
-                                <p>Download all hexagons in one GeoJSON file</p>
-                                <button class="download-button primary" id="download-single">📥 Download Single File</button>
+                                <h4>Single file</h4>
+                                <p>Download all hexagons in one GeoJSON file –– good for making custom Datawrapper choropleth maps</p>
+                                <button class="download-button primary" id="download-single">Download single file</button>
                             </div>
                             
                             <div class="download-option">
-                                <h4>Multiple Files</h4>
-                                <p>Download separate files for each bin category</p>
-                                <button class="download-button secondary" id="download-multi">📦 Download ZIP with Multiple Files</button>
+                                <h4>Multiple files</h4>
+                                <p>Download separate files for each bin category –– good for making Datawrapper locator maps</p>
+                                <button class="download-button primary" id="download-multi">Download ZIP with multiple files</button>
                             </div>
                         </div>
+
+                        
+
                     </div>
+
+
+
                 </div>
                 
                 <div class="step-navigation">
-                    <button class="nav-button secondary" id="back-to-resolution">← Go Back & Adjust</button>
-                    <button class="nav-button primary" id="restart-process">�� Start Over</button>
+                    <button class="nav-button secondary" id="back-to-resolution">← Go back & adjust</button>
+                    <button class="nav-button primary" id="restart-process">Start over</button>
                 </div>
             </section>
         </main>
