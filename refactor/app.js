@@ -41,7 +41,21 @@ class AppState {
         this.drawnItems = null;
         this.hexagonLayer = null;
         this.geojsonLayer = null;
-        this.customColors = {};
+        // Color constants
+        this.COLOR_START = '#FFFFFF';
+        this.COLOR_END = '#000000';
+        
+        // Default color suggestions for Coloris
+        this.COLOR_SUGGESTIONS = [
+            // DW Blues
+            '#50cffa', '#05b2fc', '#0083e4', '#0044b8', '#002186', '#081336',
+            // DW Reds
+            '#f7ad6d', '#fa8d66', '#eb6565', '#c74a4a', '#9e2424', '#701919',     
+        ];
+        
+        // Color arrays
+        this.defaultColors = []; // Generated for resolution step (white to primary interpolation)
+        this.customColors = {};  // User modifications for download step only
 
         // Constants
         this.maxFileSize = 100 * 1024 * 1024; // 100MB
@@ -259,6 +273,10 @@ class AppState {
         if (this.maps.preview) {
             this.maps.preview.remove();
             this.maps.preview = null;
+        }
+        if (this.maps.downloadPreview) {
+            this.maps.downloadPreview.remove();
+            this.maps.downloadPreview = null;
         }
         
         // Reset upload UI
@@ -1314,7 +1332,7 @@ class AppState {
                 attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
                 maxZoom: 19
             }).addTo(this.maps.area);
-            console.log('Tile layer created:', L.tileLayer);
+            console.log('Tile layer created');
             
             // Initialize drawn items layer
             this.drawnItems = new L.FeatureGroup();
@@ -1918,6 +1936,9 @@ class AppState {
         // Setup bin controls
         this.setupBinControls();
         
+        // Generate default colors for the current bin settings
+        this.generateDefaultColors();
+        
         // Auto-generate hexagons with default values if we have data
         if (this.areaSelectedCsvData && this.areaSelectedCsvData.length > 0) {
             this.generateHexagonsInitial();
@@ -2252,7 +2273,7 @@ class AppState {
         
         // Legend swatches
         const previewString = binLabels.map((label, index) => {
-            const color = this.getBinColor(label, binLabels);
+            const color = this.getDefaultColor(index);
             return `<div class="legend-item" data-bin-label="${label}">
                 <div class="legend-value">${label}</div>
             </div>`;
@@ -2266,20 +2287,7 @@ class AppState {
     
 
 
-    getBinColor(binLabel, binLabels) {
-        // Simple color scale using D3
-        const index = binLabels.indexOf(binLabel);
-        if (index === -1) return '#cccccc';
-        
-        const n = binLabels.length;
-        const t = n === 1 ? 1 : index / (n - 1);
-        
-        // Use a simple color scale (white to purple)
-        const startColor = '#ffffff';
-        const endColor = '#5e3c99';
-        
-        return d3.interpolateLab(startColor, endColor)(t);
-    }
+
     
 
 
@@ -2300,7 +2308,8 @@ class AppState {
             this.hexagonLayer = L.geoJSON(this.processedData.features, {
                 style: (feature) => {
                     const bin = feature.properties.bin;
-                    const color = this.getBinColor(bin, binsArr);
+                    const binIndex = this.getBinIndex(bin);
+                    const color = this.getDefaultColor(binIndex);
                     return {
                         fillColor: color,
                         weight: 1,
@@ -2359,7 +2368,7 @@ class AppState {
             return;
         }
         
-
+        // Colors are already initialized in step setup
         
         // Perform H3 processing
         this.performH3Processing().catch(error => {
@@ -2651,6 +2660,530 @@ class AppState {
         
         console.log('✅ Two side-by-side histograms created');
     }
+
+    // ============================================================================
+    // BIN COLOR MANAGEMENT
+    // ============================================================================
+
+    generateDefaultColors() {
+        console.log('🎨 Generating default colors...');
+        
+        const binCount = this.binCount;
+        this.defaultColors = [];
+        
+        for (let i = 0; i < binCount; i++) {
+            const t = binCount === 1 ? 1 : i / (binCount - 1); // Step on the color ramp
+            const color = d3.interpolateLab(this.COLOR_START, this.COLOR_END)(t);
+            const colorHex = d3.color(color).formatHex();
+            this.defaultColors.push(colorHex);
+        }
+        
+        console.log('✅ Default colors generated:', this.defaultColors);
+    }
+
+    initializeCustomColors() {
+        console.log('🎨 Initializing custom colors...');
+        
+        const binLabels = this.generateBinLabels();
+        this.customColors = {};
+        
+        binLabels.forEach((label, index) => {
+            this.customColors[label] = this.defaultColors[index];
+        });
+        
+        console.log('✅ Custom colors initialized:', this.customColors);
+    }
+
+    generateBinLabels() {
+        const labels = [];
+        
+        for (let i = 0; i < this.binCount; i++) {
+            const start = i * this.binStep + 1;
+            const end = (i + 1) * this.binStep;
+            
+            if (i === this.binCount - 1) {
+                // Last bin is always a "+" bin
+                labels.push(`${start}+`);
+            } else {
+                labels.push(`${start}–${end}`);
+            }
+        }
+        
+        return labels;
+    }
+
+    getDefaultColor(binIndex) {
+        return this.defaultColors[binIndex] || this.COLOR_START;
+    }
+
+    getCustomColor(binLabel) {
+        return this.customColors[binLabel] || this.getDefaultColor(this.getBinIndex(binLabel));
+    }
+
+    getBinIndex(binLabel) {
+        const binLabels = this.generateBinLabels();
+        return binLabels.indexOf(binLabel);
+    }
+
+    setupCopyLegend() {
+        // Add event listener for copy button
+        this.navigation.addListener('copy-legend-html', 'click', () => {
+            this.copyLegendAsHTML();
+        });
+    }
+
+    copyLegendAsHTML() {
+        if (!this.processedData || !this.processedData.binLabels) {
+            console.warn('⚠️ No processed data available for legend');
+            return;
+        }
+
+        // Get bin labels and their corresponding colors
+        const binLabels = this.processedData.binLabels;
+        const legendData = binLabels.map(label => {
+            const color = this.getCustomColor(label);
+            return {
+                color: color,
+                label: label
+            };
+        });
+
+        // Generate horizontal HTML legend (like Datawrapper style)
+        const htmlLegend = this.generateHorizontalHTMLLegend(legendData);
+        
+        // Copy to clipboard
+        navigator.clipboard.writeText(htmlLegend).then(() => {
+            this.showCopyFeedback();
+            console.log('✅ HTML legend copied to clipboard');
+        }).catch(err => {
+            console.error('❌ Failed to copy legend:', err);
+            // Fallback: show the HTML in a prompt
+            prompt('Copy this HTML:', htmlLegend);
+        });
+    }
+
+    generateHorizontalHTMLLegend(legendData) {
+        // Create horizontal legend with individual colored elements
+        let html = '';
+        
+        // Color bar row - each span has its own background color
+        legendData.forEach((item, index) => {
+            const isLast = index === legendData.length - 1;
+            
+            // Each color element with its own background color, no borders
+            html += `<span style="display:inline-block;height:20px;background-color:${item.color};"></span>`;
+        });
+        
+        html += '<br><br>';
+        
+        // Percentage labels row
+        legendData.forEach((item, index) => {
+            const percentage = Math.round((index + 1) * (100 / legendData.length));
+            const isLast = index === legendData.length - 1;
+            
+            // Label span with text alignment
+            const textAlign = isLast ? 'text-align:right;' : 'text-align:center;';
+            html += `<span style="display:inline-block;font-family:Arial,sans-serif;font-size:11px;color:#333;${textAlign}"><strong>${percentage}%</strong></span>`;
+        });
+        
+        return html;
+    }
+
+    showCopyFeedback() {
+        const feedback = document.getElementById('copy-legend-feedback');
+        if (feedback) {
+            feedback.style.display = 'block';
+            feedback.classList.add('visible');
+            
+            setTimeout(() => {
+                feedback.classList.remove('visible');
+                setTimeout(() => {
+                    feedback.style.display = 'none';
+                }, 300);
+            }, 1200);
+        }
+        
+        // Also update button title temporarily
+        const copyBtn = document.getElementById('copy-legend-html');
+        if (copyBtn) {
+            const originalTitle = copyBtn.title;
+            copyBtn.title = 'Copied!';
+            setTimeout(() => {
+                copyBtn.title = originalTitle;
+            }, 1200);
+        }
+    }
+
+    // ============================================================================
+    // DOWNLOAD STEP METHODS
+    // ============================================================================
+
+    initializeDownloadStep() {
+        console.log('📥 Initializing download step...');
+        
+        // Initialize the download preview map
+        this.initializeDownloadPreviewMap();
+        
+        // Initialize custom colors (copy of defaults)
+        this.initializeCustomColors();
+        
+        // Update file info
+        this.updateFileInfo();
+        
+        // Update the download preview map with current data
+        this.updateDownloadPreviewMap();
+        
+        // Setup download button listeners
+        this.setupDownloadListeners();
+        
+        // Setup color customization
+        this.setupColorCustomization();
+        
+        // Setup copy legend functionality
+        this.setupCopyLegend();
+        
+        // Initialize Coloris color picker
+        this.initializeColoris();
+        
+        console.log('✅ Download step initialized');
+    }
+
+    initializeDownloadPreviewMap() {
+        if (!this.maps.downloadPreview) {
+            console.log('🗺️ Creating download preview map...');
+            
+            // Create Leaflet map
+            this.maps.downloadPreview = L.map('download-preview-map').setView([0, 0], 2);
+            
+            // Add OpenStreetMap tiles
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                maxZoom: 19
+            }).addTo(this.maps.downloadPreview);
+            
+            console.log('✅ Download preview map initialized');
+        }
+    }
+
+    updateDownloadPreviewMap() {
+        if (!this.maps.downloadPreview) return;
+        
+        // Clear existing hexagon layers
+        if (this.downloadHexagonLayer) {
+            this.maps.downloadPreview.removeLayer(this.downloadHexagonLayer);
+        }
+        
+        // Add hexagon polygons to map if we have processed data
+        if (this.processedData && this.processedData.features.length > 0) {
+            console.log('🗺️ Adding hexagon polygons to download preview map...');
+            
+            // Create hexagon layer with styling
+            this.downloadHexagonLayer = L.geoJSON(this.processedData, {
+                style: (feature) => {
+                    const binLabel = feature.properties.bin;
+                    const color = this.getCustomColor(binLabel);
+                    
+                    return {
+                        fillColor: color,
+                        weight: 1,
+                        opacity: 0.8,
+                        color: '#ffffff',
+                        fillOpacity: 0.7
+                    };
+                },
+                onEachFeature: (feature, layer) => {
+ 
+                    const count = feature.properties.count;
+                    const binLabel = feature.properties.bin;
+                    
+                    
+                    layer.bindPopup(`
+                        <div class="popup-content">
+                            <strong>Hexagon Details</strong><br>
+                            Point count: ${count}<br>
+                            Bin: ${binLabel}
+                        </div>
+                    `);
+                }
+            }).addTo(this.maps.downloadPreview);
+            
+            // Fit map to hexagon bounds
+            this.maps.downloadPreview.fitBounds(this.downloadHexagonLayer.getBounds());
+            
+            console.log(`🗺️ Added ${this.processedData.features.length} hexagon polygons to download preview map`);
+        }
+    }
+
+    updateFileInfo() {
+        if (!this.processedData) return;
+        
+        const hexCount = this.processedData.features.length;
+        const fileSize = this.estimateFileSize();
+        
+        // Update hex count
+        const hexCountElement = document.getElementById('hex-count');
+        if (hexCountElement) {
+            hexCountElement.textContent = hexCount.toLocaleString();
+        }
+        
+        // Update file size
+        const fileSizeElement = document.getElementById('file-size');
+        if (fileSizeElement) {
+            fileSizeElement.textContent = fileSize;
+        }
+    }
+
+    estimateFileSize() {
+        if (!this.processedData) return '0 KB';
+        
+        // Rough estimation: each feature is about 200-500 bytes
+        const estimatedBytes = this.processedData.features.length * 350;
+        
+        if (estimatedBytes < 1024) {
+            return `${estimatedBytes} B`;
+        } else if (estimatedBytes < 1024 * 1024) {
+            return `${(estimatedBytes / 1024).toFixed(1)} KB`;
+        } else {
+            return `${(estimatedBytes / (1024 * 1024)).toFixed(1)} MB`;
+        }
+    }
+
+    setupDownloadListeners() {
+        // Single file download
+        this.navigation.addListener('download-single', 'click', () => {
+            this.downloadSingleFile();
+        });
+        
+        // Multiple files download
+        this.navigation.addListener('download-multi', 'click', () => {
+            this.downloadMultipleFiles();
+        });
+    }
+
+    downloadSingleFile() {
+        if (!this.processedData) {
+            console.error('❌ No processed data available for download');
+            return;
+        }
+        
+        console.log('📥 Downloading single file with custom colors...');
+        
+        // Apply custom colors on-the-fly (no memory duplication)
+        const geoJsonString = JSON.stringify(this.processedData, null, 2);
+        
+        // Create and trigger download
+        const blob = new Blob([geoJsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `hexagon_map_${new Date().toISOString().split('T')[0]}.geojson`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        console.log('✅ Single file download completed with custom colors');
+    }
+
+    downloadMultipleFiles() {
+        if (!this.processedData) {
+            console.error('❌ No processed data available for download');
+            return;
+        }
+        
+        console.log('📦 Downloading multiple files with custom colors...');
+        
+        // Apply custom colors on-the-fly
+        // const customizedData = this.applyCustomColorsToData(this.processedData);
+        
+        // Group features by bin
+        const bins = {};
+        this.processedData.features.forEach(feature => {
+            const binLabel = feature.properties.binLabel;
+            if (!bins[binLabel]) {
+                bins[binLabel] = {
+                    type: 'FeatureCollection',
+                    features: []
+                };
+            }
+            bins[binLabel].features.push(feature);
+        });
+        
+        // Create ZIP file
+        const zip = new JSZip();
+        
+        // Add each bin as a separate GeoJSON file
+        Object.keys(bins).forEach(binLabel => {
+            const geoJsonString = JSON.stringify(bins[binLabel], null, 2);
+            const fileName = `hexagons_${binLabel.replace(/[^a-zA-Z0-9]/g, '_')}.geojson`;
+            zip.file(fileName, geoJsonString);
+        });
+        
+        // Generate and download ZIP
+        zip.generateAsync({ type: 'blob' }).then(content => {
+            const url = URL.createObjectURL(content);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `hexagon_maps_${new Date().toISOString().split('T')[0]}.zip`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+        
+        console.log('✅ Multiple files download completed with custom colors');
+    }
+
+    // applyCustomColorsToData(originalData) {
+    //     if (!originalData || !originalData.features) {
+    //         console.warn('⚠️ No valid data to apply custom colors to');
+    //         return originalData;
+    //     }
+        
+    //     console.log('🎨 Applying custom colors to data...');
+        
+    //     // Deep clone the original data
+    //     const customized = JSON.parse(JSON.stringify(originalData));
+        
+    //     // Apply custom colors to each feature
+    //     customized.features.forEach(feature => {
+    //         const binLabel = feature.properties.binLabel;
+    //         if (binLabel) {
+    //             const customColor = this.getCustomColor(binLabel);
+    //             feature.properties.color = customColor;
+                
+    //             // Add additional color properties for better compatibility
+    //             feature.properties.fill = customColor;
+    //             feature.properties.stroke = customColor;
+    //         }
+    //     });
+        
+    //     console.log(`✅ Applied custom colors to ${customized.features.length} features`);
+    //     return customized;
+    // }
+
+    // ============================================================================
+    // COLOR CUSTOMIZATION METHODS
+    // ============================================================================
+
+    setupColorCustomization() {
+        // Reset colors button
+        this.navigation.addListener('reset-colors', 'click', () => {
+            this.resetToDefaultColors();
+        });
+        
+        // Update color legend (always visible)
+        this.updateColorLegend();
+    }
+
+    initializeColoris() {
+        // Initialize Coloris with default settings
+        if (typeof Coloris !== 'undefined') {
+            // Initialize Coloris (no need for separate init() call)
+            Coloris({
+                el: '.coloris-input',
+                theme: 'pill',
+                themeMode: 'light',
+                format: 'hex',
+                formatToggle: false,
+                clearButton: false,
+                closeButton: true,
+                swatches: this.COLOR_SUGGESTIONS
+            });
+            console.log('✅ Coloris initialized with hex format and color suggestions');
+        } else {
+            console.warn('⚠️ Coloris not loaded, falling back to native color picker');
+        }
+    }
+
+    ensureHexFormat(color) {
+        // Convert RGB/RGBA to hex if needed
+        if (color.startsWith('rgb')) {
+            // Uses d3 for color conversion
+            const hexColor = d3.color(color).formatHex();
+        }
+        
+        return color.toUpperCase();
+
+    }
+
+    handleColorChange(binLabel, newColor) {
+        // Ensure color is in hex format
+        const hexColor = this.ensureHexFormat(newColor);
+        
+        // Update custom color
+        this.customColors[binLabel] = hexColor;
+        
+        // Update all related components
+        this.updateColorLegend();
+        this.updateDownloadPreviewMap();
+        
+        console.log(`✅ Color updated for bin "${binLabel}": ${hexColor}`);
+    }
+
+
+    resetToDefaultColors() {
+        // Reset custom colors to default colors
+        this.initializeCustomColors();
+        
+        // Update color legend and map
+        this.updateColorLegend();
+        this.updateDownloadPreviewMap();
+        
+        console.log('✅ Colors reset to defaults');
+    }
+
+    updateColorLegend() {
+        const colorLegend = document.getElementById('color-legend');
+        if (!colorLegend) return;
+        
+        if (!this.processedData || !this.processedData.binLabels) {
+            colorLegend.innerHTML = '<p class="text-center text-gray-500">No data available</p>';
+            return;
+        }
+        
+        const binLabels = this.processedData.binLabels;
+        const legendItems = binLabels.map(label => {
+            const color = this.getCustomColor(label);
+            const hexColor = this.ensureHexFormat(color);
+            return `
+                <div class="color-legend-item" data-bin-label="${label}">
+                    <input type="text" class="coloris-input" data-bin-label="${label}" value="${hexColor}" readonly>
+                    <span class="color-label">${label}</span>
+                </div>
+            `;
+        }).join('');
+        
+        colorLegend.innerHTML = legendItems;
+        
+        // Re-initialize Coloris for new inputs
+        if (typeof Coloris !== 'undefined') {
+            Coloris({
+                el: '.coloris-input',
+                theme: 'pill',
+                themeMode: 'light',
+                format: 'hex',
+                formatToggle: false,
+                clearButton: false,
+                closeButton: true,
+                swatches: this.COLOR_SUGGESTIONS
+            });
+            
+            // Add individual change listeners to each input
+            colorLegend.querySelectorAll('.coloris-input').forEach(input => {
+                input.addEventListener('input', (e) => {
+                    const binLabel = e.target.dataset.binLabel;
+                    const newColor = e.target.value;
+                    if (binLabel && newColor) {
+                        this.handleColorChange(binLabel, newColor);
+                    }
+                });
+            });
+        }
+        
+        console.log('✅ Color legend updated with custom colors');
+    }
+
 
 } // End of AppState class
 

@@ -359,6 +359,35 @@
                             </div>
                         </div>
                         
+                        <div class="preview-container">
+                            <div class="preview-header">
+                                <h4>Final Preview Map</h4>
+                                <p>Your processed hexagon map ready for download</p>
+                            </div>
+                            <div id="download-preview-map" class="preview-map"></div>
+                            
+                            <!-- Color Customization Section -->
+                            <div class="color-customization">
+                                <div class="color-customization-header">
+                                    <h5>Customize Colors</h5>
+                                    <div class="color-controls">
+                                        <button id="reset-colors" class="btn btn-outline-secondary btn-sm">
+                                            Reset to Defaults
+                                        </button>
+                                        <button id="copy-legend-html" class="copy-legend-btn" title="Copy HTML Legend">
+                                            <span style="font-size:18px;">📋</span>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id="color-legend" class="color-legend">
+                                    <!-- Color legend will be populated here -->
+                                </div>
+                                <div id="copy-legend-feedback" class="copy-feedback" style="display: none;">
+                                    Legend HTML copied!
+                                </div>
+                            </div>
+                        </div>
+                        
                         <div class="download-options">
                             <div class="download-option">
                                 <h4>Single File</h4>
@@ -391,6 +420,10 @@
     <script src="../vendor/h3-js.umd.js"></script>
     <script src="../vendor/jszip.min.js"></script>
     <script src="../vendor/turf.min.js"></script>
+    
+    <!-- Coloris Color Picker -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mdbassit/Coloris@latest/dist/coloris.min.css"/>
+    <script src="https://cdn.jsdelivr.net/gh/mdbassit/Coloris@latest/dist/coloris.min.js"></script>
     
     <!-- App Scripts -->
     <script src="app.js"></script>
