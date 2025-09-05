@@ -18,32 +18,35 @@
     <!-- App Container -->
     <div class="app-container">
         <!-- Header -->
-        <header class="app-header">
+        <!-- <header class="app-header">
             <div class="header-content">
                 <h1 class="app-title">CSV to Hexbin Map</h1>
                 <p class="app-subtitle">Create hexagon maps from CSV files with latitude and longitude</p>
             </div>
-        </header>
+        </header> -->
 
         <!-- Progress Bar -->
-        <div class="progress-container hidden">
-            <div class="progress-bar">
-                <div class="progress-fill" id="progress-fill"></div>
-            </div>
-            <div class="progress-text">
-                Step <span id="current-step">1</span> of <span id="total-steps">5</span>
-            </div>
-        </div>
+
 
         <!-- Main Content Area -->
         <main class="main-content">
+
+            <div class="progress-container hidden">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+                <div class="progress-text">
+                    Step <span id="current-step">1</span> of <span id="total-steps">5</span>
+                </div>
+            </div>
+
             <!-- Step 1: Start -->
             <section id="step-start" class="step active">
                 <div class="step-content">       
 
                     <div class="start-content">
                         <div class="step-header">
-                            <h2>How does it work?</h2>
+                            <h2>CSV → Hexagon Map</h2>
                             <div class="intro-text">
                                 <p>1. Upload a CSV file with latitude/longitude coordinates</p>
                                 <p>2. Filter and preview your data</p>

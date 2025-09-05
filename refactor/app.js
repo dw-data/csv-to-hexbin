@@ -2514,7 +2514,7 @@ class AppState {
             .attr('y', d => y(d.count))
             .attr('width', d => Math.max(1, (x(d.x1) - x(d.x0)) * 0.8))
             .attr('height', d => chartHeight - y(d.count))
-            .attr('fill', '#6c757d')
+            .attr('fill', 'var(--primary-color)')
             .attr('opacity', 0.7)
             .on('mouseover', function(event, d) {
                 d3.select(this).attr('opacity', 1);
@@ -2556,6 +2556,24 @@ class AppState {
         
         leftG.append('g')
             .call(d3.axisLeft(y).ticks(5));
+        
+        // Add axis labels for left histogram
+        leftG.append('text')
+            .attr('transform', `translate(${chartWidth/2}, ${chartHeight + 35})`)
+            .style('text-anchor', 'middle')
+            .style('font-size', '12px')
+            .style('fill', 'var(--text-color)')
+            .text('Point count per hexagon');
+
+        leftG.append('text')
+            .attr('transform', 'rotate(-90)')
+            .attr('y', 0 - margin.left)
+            .attr('x', 0 - (chartHeight / 2))
+            .attr('dy', '1em')
+            .style('text-anchor', 'middle')
+            .style('font-size', '12px')
+            .style('fill', 'var(--text-color)')
+            .text('Number of hexagons');
         
         const rawHistogramContainer = document.getElementById('raw-histogram');
         if (rawHistogramContainer) {
@@ -2659,6 +2677,24 @@ class AppState {
             
             rightG.append('g')
                 .call(d3.axisLeft(y).ticks(5));
+            
+            // Add axis labels for right histogram
+            rightG.append('text')
+                .attr('transform', `translate(${chartWidth/2}, ${chartHeight + 35})`)
+                .style('text-anchor', 'middle')
+                .style('font-size', '12px')
+                .style('fill', 'var(--text-color)')
+                .text('Bin point range');
+
+            rightG.append('text')
+                .attr('transform', 'rotate(-90)')
+                .attr('y', 0 - margin.left)
+                .attr('x', 0 - (chartHeight / 2))
+                .attr('dy', '1em')
+                .style('text-anchor', 'middle')
+                .style('font-size', '12px')
+                .style('fill', 'var(--text-color)')
+                .text('Number of hexagons');
             
             const binnedHistogramContainer = document.getElementById('binned-histogram');
             if (binnedHistogramContainer) {

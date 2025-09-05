@@ -34,7 +34,7 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     line-height: 1.6;
     color: #333;
-    background: var(--bg-color);
+    background: var(--box-color);
     min-height: 100vh;
 }
 
@@ -95,7 +95,7 @@ body {
     border: 1px solid var(--primary-color);
     padding: 1rem;
     border-radius: 12px;
-    margin-bottom: 1rem;
+    margin-bottom: 2rem;
     background: var(--bg-color);
 }
 
@@ -161,9 +161,14 @@ p.filter-warning {
     margin-bottom: 2rem;
 }
 
+/* Start step specific header styling */
+#step-start .step-header {
+    margin-bottom: 3rem;
+}
+
 .step-header h2 {
-    font-size: 2rem;
-    color: var(--text-color);
+    font-size: 2.5rem;
+    color: var(--accent-color);
     margin-bottom: 0.5rem;
 }
 
@@ -236,6 +241,12 @@ p.filter-warning {
 .start-content {
     max-width: 800px;
     margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: calc(100vh - 4rem); /* Account for main-content padding */
+    text-align: center;
 }
 
 .feature-list, .data-sources {
@@ -382,8 +393,7 @@ p.filter-warning {
 
 .filter-instructions {
     padding: 1rem;
-    border-radius: 8px;
-    margin-bottom: 1.5rem;
+    margin-bottom: 0.7em;
     text-align: left;
 }
 
@@ -1306,7 +1316,7 @@ p.filter-warning {
 }
 
 .info-value {
-    color: var(--secondary-color);
+    color: var(--light-text-color);
     font-weight: 600;
 }
 
@@ -1385,7 +1395,8 @@ p.filter-warning {
     }
     
     .step-header h2 {
-        font-size: 1.5rem;
+        font-size: 2.5rem;
+        color: var(--accent-color)
     }
     
     .nav-button {
