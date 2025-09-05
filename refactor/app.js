@@ -2753,66 +2753,33 @@ class AppState {
         
         // Copy to clipboard
         navigator.clipboard.writeText(htmlLegend).then(() => {
-            this.showCopyFeedback();
+            this.showToast('Legend copied to clipboard!', 'success');
             console.log('✅ HTML legend copied to clipboard');
         }).catch(err => {
             console.error('❌ Failed to copy legend:', err);
+            this.showToast('Failed to copy legend', 'error');
             // Fallback: show the HTML in a prompt
             prompt('Copy this HTML:', htmlLegend);
         });
     }
 
     generateHorizontalHTMLLegend(legendData) {
-        // Create horizontal legend with individual colored elements
+        // Create horizontal legend using the provided template
         let html = '';
         
-        // Color bar row - each span has its own background color
         legendData.forEach((item, index) => {
             const isLast = index === legendData.length - 1;
+            const marginRight = isLast ? '' : 'margin-right:6px;';
             
-            // Each color element with its own background color, no borders
-            html += `<span style="display:inline-block;height:20px;background-color:${item.color};"></span>`;
-        });
-        
-        html += '<br><br>';
-        
-        // Percentage labels row
-        legendData.forEach((item, index) => {
-            const percentage = Math.round((index + 1) * (100 / legendData.length));
-            const isLast = index === legendData.length - 1;
-            
-            // Label span with text alignment
-            const textAlign = isLast ? 'text-align:right;' : 'text-align:center;';
-            html += `<span style="display:inline-block;font-family:Arial,sans-serif;font-size:11px;color:#333;${textAlign}"><strong>${percentage}%</strong></span>`;
+            html += `<span style="display:inline-block; text-align:center; ${marginRight}">
+                    <span style="display:block; width:30px; height:12px; background:${item.color};"></span>
+                    <span style="display:block; font-size:11px; color:#444;">${item.label}</span>
+                    </span>`;
         });
         
         return html;
     }
 
-    showCopyFeedback() {
-        const feedback = document.getElementById('copy-legend-feedback');
-        if (feedback) {
-            feedback.style.display = 'block';
-            feedback.classList.add('visible');
-            
-            setTimeout(() => {
-                feedback.classList.remove('visible');
-                setTimeout(() => {
-                    feedback.style.display = 'none';
-                }, 300);
-            }, 1200);
-        }
-        
-        // Also update button title temporarily
-        const copyBtn = document.getElementById('copy-legend-html');
-        if (copyBtn) {
-            const originalTitle = copyBtn.title;
-            copyBtn.title = 'Copied!';
-            setTimeout(() => {
-                copyBtn.title = originalTitle;
-            }, 1200);
-        }
-    }
 
     // ============================================================================
     // DOWNLOAD STEP METHODS
@@ -3306,6 +3273,11 @@ class StepNavigation {
 
     restartApplication() {
         console.log('🔄 Restarting application...');
+        
+        // Hide all steps first
+        for (let i = 1; i <= this.appState.totalSteps; i++) {
+            this.appState.hideStep(i);
+        }
         
         // Reset state
         this.appState.reset();
