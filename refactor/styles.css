@@ -1316,7 +1316,7 @@ p.filter-warning {
 }
 
 .info-value {
-    color: var(--light-text-color);
+    color: var(--light-text-colortext-color);
     font-weight: 600;
 }
 
