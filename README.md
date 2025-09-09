@@ -8,8 +8,7 @@ Please, check your outputs. You know those LLMs can never be trusted.
 
 ## How it Works
 
-**Disclaimer:** This description was written by an AI agent and revised by me. While I've done my best to filter out hallucinations, please verify any technical details independently.
-
+**Disclaimer:** This description was written by an AI agent and revised by humans. 🤖
 
 ### 1. Upload Your Data
 - Upload a CSV file containing latitude and longitude coordinates
@@ -26,7 +25,6 @@ Please, check your outputs. You know those LLMs can never be trusted.
 - **Hexagon Size**: Choose H3 resolution level (0-15)
   - Level 0 = largest hexagons (continental scale)
   - Level 15 = smallest hexagons (building scale)
-  - Default starts at Level 2 for good performance
 - **Color Bins**: Define how to group hexagons by point count
   - Set points per category (e.g., 10 points per bin)
   - Set total number of color categories (e.g., 10 bins)
@@ -61,20 +59,17 @@ Please, check your outputs. You know those LLMs can never be trusted.
 ### Binning and Color Assignment
 - Creates user-defined bins based on point counts
 - Assigns each hexagon to a color category
-- Uses Viridis color scale for consistent visualization
-- Handles edge cases like empty hexagons and outliers
 
 ### Output Generation
 - Creates GeoJSON features for each hexagon
-- Includes metadata: point count, bin assignment, H3 index
 - Generates histogram data for distribution analysis
-- Provides both single-file and multi-file download options
+- Provides both single-file and multi-file download options. Single-file is useful for custom choropleth maps on Datawrapper, while multi-file is useful for locator maps.
 
 ## Technical Details
 
 - **Hexagon System**: Uses Uber's H3 geospatial indexing system
 - **Color Scale**: Viridis color palette (colorblind-friendly)
-- **File Format**: GeoJSON output with embedded metadata
+- **File Format**: GeoJSON output
 - **Performance**: Optimized for datasets up to 500,000 points
 
 
