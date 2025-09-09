@@ -3012,7 +3012,7 @@ class AppState {
         // Group features by bin
         const bins = {};
         this.processedData.features.forEach(feature => {
-            const binLabel = feature.properties.binLabel;
+            const binLabel = feature.properties.bin;
             if (!bins[binLabel]) {
                 bins[binLabel] = {
                     type: 'FeatureCollection',
